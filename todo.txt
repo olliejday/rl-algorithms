@@ -1,0 +1,23 @@
+#TODO:
+
+* See below *s
+* Add sources
+* Put snake env as one repo. Then VPG and DQN start an algorithms repo. Can include the lander runs (try a better LR schedule)
+ and the snake running stuff there.
+* Then I think this problem can be considered done for now (can always come back when write a few more
+algorithms, but there are other good test envs for that too!)
+
+Note your mix of keras and tf can cause problems with different sessions. Should have alleviated this using
+sess = keras_backend.get_session() but be aware!
+
+PG
+
+* Could be a bit cleaner with model.predict instead of sess.run() for rollouts?
+* LOTS OF UNTESTED CHANGES - DO SOME DEBUG TESTS
+* Add a run on some toy env
+
+DQN
+
+* Compare forms of loss eg. one_hot multiply or gather
+* Why does performance peak then degrade on lander? Try different learning rate schedule
+* Why does Lambda cast layer only work with variable and not class variable? To do with custom objects
