@@ -1,12 +1,11 @@
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
 import matplotlib as mpl
-import pandas as pd
 import time
 import os
-import random
-import keras.backend as keras_backend
+
+from src.common.utils import plot_training_curves
+
 
 mpl.style.use("seaborn")
 
@@ -72,12 +71,10 @@ class VPGBuffer:
         return np.concatenate([x for x in self.logprobs])
 
 
-# TODO: comment this logging
-class TrainingLogger:
+class VPGTrainingLogger:
     """
     Logs metrics during training
     """
-
     def __init__(self, experiments_dir, initial_logs=[""], do_plot=False):
         """
         Creates a training logger
@@ -105,6 +102,14 @@ class TrainingLogger:
                      "EpLenMean, EpLenStd, Timesteps\n")
 
     def log(self, itr, returns, ep_lengths, entropy, kl):
+        """
+        Logs metrics during training. Logs to file and prints to screen.
+        :param itr: Current iteration of training
+        :param returns: A set of returns from episodes during training since last log.
+        :param ep_lengths: A set of episode lengths of episodes during training since last log.
+        :param entropy: the current entropy of the policy
+        :param kl: KL divergence of the updated policy from the old policy.
+        """
         self.timesteps += np.sum(ep_lengths)
 
         print("{}, Iteration: {}\n MeanReturn: {:.3f}\n StdReturn: {:.3f}\n MaxReturn: {:.3f}\n MinReturn: {:.3f}\n "
@@ -137,31 +142,19 @@ class TrainingLogger:
             plot_training_curves(self.log_path, save_to=self.plot_path)
 
 
-def plot_experiment(exp_name):
-    root_dir = os.path.dirname(os.path.realpath(__file__))
-    log_path = os.path.join(root_dir, "experiments/{}/logs/logs.txt".format(exp_name))
-    plot_training_curves(log_path)
-
-
-def plot_training_curves(log_path, save_to=""):
-    df = pd.read_csv(log_path, sep=", ", engine="python")
-    plt.plot(df["Timesteps"], df["MeanReturn"], label="Mean Return", color="tomato")
-    plt.fill_between(df["Timesteps"], df["MeanReturn"] - df["StdReturn"], df["MeanReturn"] + df["StdReturn"],
-                     alpha=0.3, label="Std Return", color="tomato")
-    plt.title("Training Curves")
-    plt.ylabel("Return")
-    plt.xlabel("Timesteps")
-    plt.legend()
-    if save_to != "":
-        plt.savefig(save_to)
-    plt.show()
-
-
-# TODO: comment this class
 class GradientBatchTrainer:
-    # setup update op such that we can apply gradient in batches
-    # from: https://stackoverflow.com/questions/42156957/how-to-update-model-parameters-with-accumulated-gradients
+    """
+    Setup update op such that we can apply gradient in batches.
+    Because we want to use large batch sizes, but this can be too big for GPU memory, so we
+    want to compute gradients in batches then average them to update.
+    From: https://stackoverflow.com/questions/42156957/how-to-update-model-parameters-with-accumulated-gradients
+    """
     def __init__(self, loss_op, learning_rate):
+        """
+        Sets up the gradient batching and averaging TF operations.
+        :param loss_op: Loss to optimise
+        :param learning_rate: learning rate to use for optimiser
+        """
         optimizer = tf.train.AdamOptimizer(learning_rate)
         # Fetch a list of our network's trainable parameters.
         trainable_vars = tf.trainable_variables()
@@ -202,6 +195,9 @@ class GradientBatchTrainer:
         self.zero_ops.append(accumulation_counter.assign(0.0))
 
     def get_batches(self, data, batch_size):
+        """
+        Returns data split into an array of batches of size batch_size.
+        """
         n = int(len(data) / batch_size)
         if len(data) % batch_size == 0:
             return [data[i:i + batch_size] for i in range(n)]
@@ -209,6 +205,10 @@ class GradientBatchTrainer:
             return [data[i * batch_size:(i + 1) * batch_size] for i in range(n)] + [data[n * batch_size:]]
 
     def get_feed_dicts(self, feed_dict, batch_size):
+        """
+        Takes a feed_dict, TF style dictionary with keys of TF placeholders and values as data.
+        Yields a batch at a time in the same dictionary format (same keys) but where values are now a single batch.
+        """
         # batch each placeholder's data
         for k, v in feed_dict.items():
             feed_dict[k] = self.get_batches(v, batch_size)
@@ -227,34 +227,13 @@ class GradientBatchTrainer:
             yield feed_dict
 
     def train(self, feed_dict, batch_size, sess):
+        """
+        The training call on the gradient batch trainer.
+        :param feed_dict: TF style feed_dict with keys of TF placeholders and values as data.
+        :param batch_size: batch size to batch data into (batch must fit into CPU/GPU memory)
+        :param sess: TF session to run on.
+        """
         sess.run(self.zero_ops)
         for fd in self.get_feed_dicts(feed_dict, batch_size):
             sess.run(self.accumulate_ops, feed_dict=fd)
         sess.run(self.train_step)
-
-
-def set_keras_session(debug):
-    """
-    Sets up the keras backed TF session
-    :param debug: if true then we use config for better reproducibility but slightly reduced performance,
-    otherwise we use better performance (but GPU usage may mean imperfect reproducibility)
-    """
-    if debug:
-        # single threads and no GPU for better reproducibility
-        session_conf = tf.ConfigProto(intra_op_parallelism_threads=1,
-                                      inter_op_parallelism_threads=1,
-                                      device_count={'GPU': 0})
-        sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
-        keras_backend.set_session(sess)
-    else:
-        # otherwise we allow GPU usage for quicker training but poorer reproducibility
-        sess = tf.Session(graph=tf.get_default_graph())
-        keras_backend.set_session(sess)
-
-
-def set_global_seeds(i, debug):
-    os.environ['PYTHONHASHSEED'] = '0'
-    np.random.seed(i)
-    random.seed(i)
-    tf.set_random_seed(i)
-    set_keras_session(debug)

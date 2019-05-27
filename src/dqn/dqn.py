@@ -8,7 +8,7 @@ from keras import Model
 from keras.layers import Input, Lambda
 from keras.models import load_model
 
-from utils import LinearSchedule, huber_loss, get_wrapper_by_name, ReplayBuffer
+from src.dqn.utils import LinearSchedule, huber_loss, get_wrapper_by_name, DQNReplayBuffer
 
 
 # TODO: comment and readme this class
@@ -175,7 +175,7 @@ class DQN():
 
     def setup_replay_buffer(self):
         # construct the replay buffer
-        self.replay_buffer = ReplayBuffer(self.replay_buffer_size, self.frame_history_len, self.integer_observations)
+        self.replay_buffer = DQNReplayBuffer(self.replay_buffer_size, self.frame_history_len, self.integer_observations)
         self.replay_buffer_idx = None
 
     def setup_graph(self):

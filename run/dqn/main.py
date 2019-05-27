@@ -2,9 +2,10 @@ import gym
 import os
 import tensorflow as tf
 
-from models import DQNFCModelKeras, DQNCNNModelKeras
-from src.dqn import DQN
-from utils import TrainingLogger, get_env, PiecewiseSchedule, ConstantSchedule, OptimizerSpec, plot_experiment
+from src.dqn.models import DQNFCModelKeras, DQNCNNModelKerasSmall
+from src.dqn.dqn import DQN
+from src.dqn.utils import DQNTrainingLogger, get_env, PiecewiseSchedule, ConstantSchedule, OptimizerSpec
+from src.common.utils import plot_training_curves
 
 
 def train(exp_name,
@@ -15,10 +16,23 @@ def train(exp_name,
           num_timesteps=1e8,
           debug=False,
           **kwargs):
+    """
+    General training setup.
+    :param env_name: Environment name to train on
+    :param exp_name: Experiment name to save logs to
+    :param model_class: Model class to call to generate the DQN (see src.dqn.models)
+    :param optimizer_spec: holds an optimzer and it's learning rate schedule (see src.dqn.utils)
+    :param seed: seed to setup system
+    :param num_timesteps: number of timesteps to train for
+    :param debug: debug flag for seeding reproducibility vs performance
+    :param kwargs: arguments to pass to DQN model __init__
+    """
+
     # setup env and wrap in monitor
     env = gym.make(env_name)
     env = get_env(env, seed, debug)
 
+    # setup logging dirs
     root_dir = os.path.dirname(os.path.realpath(__file__))
     experiments_path = os.path.join(root_dir, "experiments", exp_name)
 
@@ -29,11 +43,11 @@ def train(exp_name,
               **kwargs)
     dqn.setup_graph()
 
-    training_logger = TrainingLogger(experiments_path, ["Env_name: {}".format(env_name),
+    training_logger = DQNTrainingLogger(experiments_path, ["Env_name: {}".format(env_name),
                                                         "Model_fn: {}".format(model_class.__name__),
                                                         "Seed: {}".format(seed),
-                                                        str(kwargs),
-                                                        str(dqn)])
+                                                           str(kwargs),
+                                                           str(dqn)])
 
     for _ in range(int(num_timesteps)):
         dqn.step_env()
@@ -119,7 +133,7 @@ def train_snake(env_type):
 
     train("dqn_snake_{}".format(env_type),
           "snake-{}-v0".format(env_type),
-          DQNCNNModelKeras,
+          DQNCNNModelKerasSmall,
           optimizer,
           num_timesteps=num_timesteps,
           exploration=exploration,
@@ -144,7 +158,16 @@ def run(exp_name,
         seed=123,
         debug=False,
         **kwargs):
-    # Get snake
+    """
+    General running setup for saved models.
+    :param exp_name: experiment directory to look for models in
+    :param env_name: environment to run model in
+    :param model_number: model number to load, if None then latest model is loaded
+    :param seed: seed to set for system
+    :param debug: debug flag for seeding reproducibility vs performance
+    :param kwargs: any kwargs to pass to DQN __init__
+    :return:
+    """
     print('Random seed = %d' % seed)
     env = gym.make(env_name)
     env = get_env(env, seed, debug)
@@ -166,6 +189,16 @@ def run(exp_name,
     env.close()
 
 
+def plot_experiment(exp_name):
+    """
+    Plots an experiment saved in logs.
+    :param exp_name: experiment name to plot
+    """
+    root_dir = os.path.dirname(os.path.realpath(__file__))
+    log_path = os.path.join(root_dir, "experiments/{}/logs/logs.txt".format(exp_name))
+    plot_training_curves(log_path)
+
+
 def run_lander(exp_name, model_number=None):
     run(exp_name, "LunarLander-v2", model_number, debug=True, integer_observations=False, frame_history_len=1)
 
@@ -176,7 +209,7 @@ def run_snake(exp_name, env_type, model_number=None):
 
 if __name__ == "__main__":
     # run_snake("dqn_snake_grid", "grid")
-    plot_experiment("dqn_lander", save=True)
-    # train_lander()
+    # plot_experiment("dqn_lander", save=True)
+    train_lander()
     # train_snake("grid")
     # train_snake("stacked")

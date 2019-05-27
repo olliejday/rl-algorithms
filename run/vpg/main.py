@@ -1,12 +1,23 @@
 import gym
 import os
 
-from src.vpg import VanillaPolicyGradients
-from utils import TrainingLogger, set_global_seeds
-from models import cnn_small, fc_small, cnn_med
+from src.vpg.vpg import VanillaPolicyGradients
+from src.vpg.utils import VPGTrainingLogger
+from src.common.utils import set_global_seeds, plot_training_curves
+from src.vpg.models import cnn_small, fc_small, cnn_medium
 
 
 def train(env_name, exp_name, model_fn, debug=False, seed=1, n_iter=100, **kwargs):
+    """
+    General training setup.
+    :param env_name: Environment name to train on
+    :param exp_name: Experiment name to save logs to
+    :param model_fn: Model function to call to generate the policy model (see src.vpg.models)
+    :param debug: debug flag for seeding reproducibility vs performance
+    :param seed: seed to setup system
+    :param n_iter: number of iterations to train for
+    :param kwargs: arguments to pass to VPG model __init__
+    """
     env = gym.make(env_name)
 
     # Set random seeds
@@ -18,11 +29,11 @@ def train(env_name, exp_name, model_fn, debug=False, seed=1, n_iter=100, **kwarg
 
     root_dir = os.path.dirname(os.path.realpath(__file__))
     experiments_path = os.path.join(root_dir, "experiments", exp_name)
-    training_logger = TrainingLogger(experiments_path, ["Env_name: {}".format(env_name),
+    training_logger = VPGTrainingLogger(experiments_path, ["Env_name: {}".format(env_name),
                                                                   "Model_fn: {}".format(model_fn.__name__),
                                                                   "Seed: {}".format(seed),
-                                                                  str(kwargs),
-                                                                  str(vpg)])
+                                                           str(kwargs),
+                                                           str(vpg)])
 
     for itr in range(n_iter):
         buffer = vpg.sample_trajectories(itr)
@@ -58,7 +69,7 @@ def train_inverted_pendulum(exp_name="vpg-debug"):
 
 def train_grid(exp_name="vpg-grid"):
     env_name = "snake-grid-v0"
-    model_fn = cnn_med
+    model_fn = cnn_medium
 
     train(env_name, exp_name, model_fn, nn_baseline=True, nn_baseline_fn=cnn_small)
 
@@ -72,9 +83,19 @@ def train_coord(exp_name="vpg-coord"):
 
 def train_stacked(exp_name="vpg-stacked"):
     env_name = "snake-stacked-v0"
-    model_fn = cnn_med
+    model_fn = cnn_medium
 
     train(env_name, exp_name, model_fn, nn_baseline=True, nn_baseline_fn=cnn_small)
+
+
+def plot_experiment(exp_name):
+    """
+    Plots an experiment saved in logs.
+    :param exp_name: experiment name to plot
+    """
+    root_dir = os.path.dirname(os.path.realpath(__file__))
+    log_path = os.path.join(root_dir, "experiments/{}/logs/logs.txt".format(exp_name))
+    plot_training_curves(log_path)
 
 
 if __name__ == "__main__":

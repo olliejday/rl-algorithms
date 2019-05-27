@@ -1,6 +1,7 @@
 from keras.layers import Input, Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Flatten
 
-def cnn_med(input_placeholder, output_size):
+
+def cnn_medium(input_placeholder, output_size):
     """
     Discrete action policy model.
     Builds a CNN model ontop of an input placeholder.
@@ -18,6 +19,7 @@ def cnn_med(input_placeholder, output_size):
 
     return x
 
+
 def cnn_small(input_placeholder, output_size):
     """
     Discrete action policy model.
@@ -34,6 +36,7 @@ def cnn_small(input_placeholder, output_size):
     x = Dense(output_size)(x)
 
     return x
+
 
 def fc_small(input_placeholder, output_size):
     """

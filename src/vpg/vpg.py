@@ -4,7 +4,7 @@ import time
 import keras.backend as keras_backend
 
 
-from utils import VPGBuffer, normalise, GradientBatchTrainer
+from src.vpg.utils import VPGBuffer, normalise, GradientBatchTrainer
 
 
 # TODO: comment this class and README

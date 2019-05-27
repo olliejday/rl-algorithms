@@ -1,5 +1,0 @@
-Env_name: snake-grid-v0
-Model_fn: DQNCNNModelKeras
-Seed: 123
-{'learning_starts': 50000.0, 'gamma': 0.99, 'replay_buffer_size': 1000000, 'grad_norm_clipping': 10, 'save_every': 2000000.0, 'learning_freq': 4, 'exploration': <utils.PiecewiseSchedule object at 0x7fe8d60f9c18>, 'delta': 1.0, 'log_every_n_steps': 10000, 'target_update_freq': 10000, 'frame_history_len': 4, 'batch_size': 32, 'integer_observations': True, 'double_q': True}
-batch_size: {}, gamma: {}, learning_starts: {}, learning_freq: {}, frame_history_len: {}, target_update_freq: {}, grad_norm_clipping: {}, 

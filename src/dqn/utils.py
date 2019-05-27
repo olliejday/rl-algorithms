@@ -5,15 +5,11 @@ from gym import wrappers
 import tensorflow as tf
 import numpy as np
 import random
-import uuid
 import time
-import matplotlib.pyplot as plt
 import os
-import pandas as pd
-import keras.backend as keras_backend
 
+from src.common.utils import plot_training_curves, set_global_seeds
 
-# TODO: go through this and keep only essentials, also add citations / sources of the work
 
 def huber_loss(x, delta=1.0):
     # https://en.wikipedia.org/wiki/Huber_loss
@@ -124,22 +120,15 @@ class LinearSchedule(object):
 
 
 class OptimizerSpec:
+    """
+    Setup for optimizer parameters.
+    Holds an optimizer eg. Adam.
+    And a learning rate schedule eg. LinearSchedule.
+    """
     def __init__(self, constructor, kwargs, lr_schedule):
         self.constructor = constructor
         self.kwargs = kwargs
         self.lr_schedule = lr_schedule
-
-
-def minimize_and_clip(optimizer, objective, var_list, clip_val=10):
-    """Minimized `objective` using `optimizer` w.r.t. variables in
-    `var_list` while ensure the norm of the gradients for each
-    variable is clipped to `clip_val`
-    """
-    gradients = optimizer.compute_gradients(objective, var_list=var_list)
-    for i, (grad, var) in enumerate(gradients):
-        if grad is not None:
-            gradients[i] = (tf.clip_by_norm(grad, clip_val), var)
-    return optimizer.apply_gradients(gradients)
 
 
 def get_wrapper_by_name(env, classname):
@@ -153,7 +142,7 @@ def get_wrapper_by_name(env, classname):
             raise ValueError("Couldn't find wrapper named %s" % classname)
 
 
-class ReplayBuffer(object):
+class DQNReplayBuffer(object):
     def __init__(self, size, frame_history_len, integer_observations=True):
         """This is a memory efficient implementation of the replay buffer.
 
@@ -334,12 +323,10 @@ class ReplayBuffer(object):
         self.done[idx] = done
 
 
-# TODO: comment this logging
-class TrainingLogger:
+class DQNTrainingLogger:
     """
     Logs metrics during training
     """
-
     def __init__(self, experiments_dir, initial_logs=[""], do_plot=False):
         """
         Creates a training logger
@@ -371,6 +358,13 @@ class TrainingLogger:
                      "EpLenMean, EpLenStd\n")
 
     def log(self, timesteps, returns, ep_lengths, exploration):
+        """
+        Logs metrics during training. Logs to file and prints to screen.
+        :param timesteps: Current timestep of training
+        :param returns: A set of returns from episodes during training since last log.
+        :param ep_lengths: A set of episode lengths of episodes during training since last log.
+        :param exploration: the current exploration parameter
+        """
         if len(returns) > self.mean_n:
             # last 100 episdoes
             returns = returns[-self.mean_n:]
@@ -412,60 +406,15 @@ class TrainingLogger:
             plot_training_curves(self.log_path, save_to=self.plot_path)
 
 
-def plot_experiment(exp_name, save=False):
-    root_dir = os.path.dirname(os.path.realpath(__file__))
-    log_dir = os.path.join(root_dir, "experiments/{}/logs/".format(exp_name))
-    log_path = os.path.join(log_dir, "logs.txt")
-    if save:
-        plot_path = os.path.join(log_dir, "figure.png")
-        plot_training_curves(log_path, save_to=plot_path)
-    else:
-        plot_training_curves(log_path)
-
-
-def plot_training_curves(log_path, save_to=""):
-    df = pd.read_csv(log_path, sep=", ", engine="python")
-    plt.plot(df["Timesteps"], df["MeanReturn"], label="Mean Return", color="tomato")
-    plt.fill_between(df["Timesteps"], df["MeanReturn"] - df["StdReturn"], df["MeanReturn"] + df["StdReturn"],
-                     alpha=0.3, label="Std Return", color="tomato")
-    plt.title("Training Curves")
-    plt.ylabel("Return")
-    plt.xlabel("Timesteps")
-    plt.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
-    plt.legend()
-    if save_to != "":
-        plt.savefig(save_to)
-    plt.show()
-
-
-def set_keras_session(debug):
-    """
-    Sets up the keras backed TF session
-    :param debug: if true then we use config for better reproducibility but slightly reduced performance,
-    otherwise we use better performance (but GPU usage may mean imperfect reproducibility)
-    """
-    if debug:
-        # single threads and no GPU for better reproducibility
-        session_conf = tf.ConfigProto(intra_op_parallelism_threads=1,
-                                      inter_op_parallelism_threads=1,
-                                      device_count={'GPU': 0})
-        sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
-        keras_backend.set_session(sess)
-    else:
-        # otherwise we allow GPU usage for quicker training but poorer reproducibility
-        sess = tf.Session(graph=tf.get_default_graph())
-        keras_backend.set_session(sess)
-
-
-def set_global_seeds(i, debug):
-    os.environ['PYTHONHASHSEED'] = '0'
-    np.random.seed(i)
-    random.seed(i)
-    tf.set_random_seed(i)
-    set_keras_session(debug)
-
-
 def get_env(env, seed, debug):
+    """
+    Seeds the env and wraps in a monitor to log training.
+    :param env: OpenAI Gym environment to setup
+    :param seed: Seed to set for reproducibility
+    :param debug: debug flag for seeding (tradeoff to use better reproducibility or better performance,
+    see src.common.utils.set_global_seeds).
+    :return: the wrapped and seeded env.
+    """
     set_global_seeds(seed, debug)
     env.seed(seed)
 

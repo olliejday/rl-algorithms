@@ -1,0 +1,61 @@
+import os
+import tensorflow as tf
+import keras.backend as keras_backend
+import random
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+def set_keras_session(debug):
+    """
+    Sets up the keras backed TF session
+    :param debug: if True then we use config for better reproducibility but slightly reduced performance,
+    otherwise we use better performance (but GPU usage may mean imperfect reproducibility)
+    """
+    if debug:
+        # single threads and no GPU for better reproducibility
+        session_conf = tf.ConfigProto(intra_op_parallelism_threads=1,
+                                      inter_op_parallelism_threads=1,
+                                      device_count={'GPU': 0})
+        sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
+        keras_backend.set_session(sess)
+    else:
+        # otherwise we allow GPU usage for quicker training but poorer reproducibility
+        sess = tf.Session(graph=tf.get_default_graph())
+        keras_backend.set_session(sess)
+
+
+def set_global_seeds(i, debug):
+    """
+    Set seeds for reproducibility.
+    :param i: Seed
+    :param debug: if True then we use config for better reproducibility but slightly reduced performance,
+    otherwise we use better performance (but GPU usage may mean imperfect reproducibility).
+    Passed to set_keras_session()
+    """
+    os.environ['PYTHONHASHSEED'] = '0'
+    np.random.seed(i)
+    random.seed(i)
+    tf.set_random_seed(i)
+    set_keras_session(debug)
+
+
+def plot_training_curves(log_path, save_to=""):
+    """
+
+    :param log_path:
+    :param save_to:
+    :return:
+    """
+    df = pd.read_csv(log_path, sep=", ", engine="python")
+    plt.plot(df["Timesteps"], df["MeanReturn"], label="Mean Return", color="tomato")
+    plt.fill_between(df["Timesteps"], df["MeanReturn"] - df["StdReturn"], df["MeanReturn"] + df["StdReturn"],
+                     alpha=0.3, label="Std Return", color="tomato")
+    plt.title("Training Curves")
+    plt.ylabel("Return")
+    plt.xlabel("Timesteps")
+    plt.legend()
+    if save_to != "":
+        plt.savefig(save_to)
+    plt.show()
