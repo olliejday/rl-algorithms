@@ -1,7 +1,10 @@
-#Reinforcement Learning Agents
+# Reinforcement Learning Algorithms
 
-##Vanilla Policy Gradients (VPG)
+## Introduction
 
-##Common
+A set of implementations of key reinforcement learning algorithms in Tensorflow. Comes with 
+example experiments and code to run on OpenAI Gym environments.
 
-Contains code such as `models.py` that is shared by the reinforcement learning code.
+See src/README.md for implementation details. 
+
+See run/README.md for details of how to run and some example experiments.

@@ -1,10 +1,9 @@
 import gym
-import gym_snake
 import os
 import tensorflow as tf
 
 from models import DQNFCModelKeras, DQNCNNModelKeras
-from dqn import DQN
+from src.dqn import DQN
 from utils import TrainingLogger, get_env, PiecewiseSchedule, ConstantSchedule, OptimizerSpec, plot_experiment
 
 

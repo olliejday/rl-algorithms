@@ -1,7 +1,12 @@
 #TODO:
 
 * See below *s
+* See TODOs, eg. comment code
+* Update READMEs - implementation details, save theory for blog.
+* Test new file structure works
+* Factor out snake-gym or make it possible to run without it and link where to install it if they want to.
 * Add sources
+* Add links to blog (and links from blog to here)
 * Make a separate branch or folder for experiments - have the algorithm code in one place and the runs in another.
 * delete this todo.txt!!
 

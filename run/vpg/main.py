@@ -1,11 +1,8 @@
-import tensorflow as tf
-import numpy as np
 import gym
-import gym_snake
 import os
 
-from vpg import VanillaPolicyGradients
-from utils import TrainingLogger, plot_experiment, set_global_seeds
+from src.vpg import VanillaPolicyGradients
+from utils import TrainingLogger, set_global_seeds
 from models import cnn_small, fc_small, cnn_med
 
 
