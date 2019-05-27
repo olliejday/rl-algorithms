@@ -1,11 +1,11 @@
 #TODO:
 
 * See below *s
-* See TODOs, eg. comment code
+* Need to comment src.vpg.vpg and src.dqn.dqn
 * Update READMEs - implementation details, save theory for blog.
 * Test new file structure works - need a lot of tests eg. plot_experiment etc.
-* Factor out snake-gym or make it possible to run without it and link where to install it if they want to.
-* Add sources
+* Factor out snake-gym dependency or make it possible to run without it and link where to install it if they want to.
+* Add sources eg. to DQN replay buffer etc. (put them in README)
 * Add links to blog (and links from blog to here)
 * Make a separate branch or folder for experiments - have the algorithm code in one place and the runs in another.
 * delete this todo.txt!!

@@ -17,10 +17,12 @@ model_outputs = model_fn(self.ob_placeholder_float)
 model = Model(self.ob_placeholder, self.q_func_ob)
 """
 
+
 class DQNCNNModelKerasSmall:
     """
     Architecture inspired by original DeepMind paper, adjusted the strides and kernels to suit smaller grid sizes.
     """
+
     def __init__(self, output_size):
         self.model_in = Conv2D(32, kernel_size=3, strides=(1, 1), activation="relu")
         self.model_hidden = [Conv2D(64, kernel_size=2, strides=(2, 2), activation="relu"),
@@ -34,10 +36,12 @@ class DQNCNNModelKerasSmall:
             x = layer(x)
         return self.model_out(x)
 
+
 class DQNFCModelKeras:
     """
     A simple fully connected model.
     """
+
     def __init__(self, output_size):
         self.model_in = Dense(64, activation="relu")
         self.model_hidden = [Dense(64, activation="relu")]
