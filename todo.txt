@@ -14,11 +14,13 @@ PG
 
 * Could be a bit cleaner with model.predict instead of sess.run() for rollouts?
 * LOTS OF UNTESTED CHANGES - DO SOME DEBUG TESTS
+* Run and report as per hw2 (ie. at least those env's and any key notes from that report)
 * Add a run on some toy env
 
 DQN
 
-* Factor running code out of DQN class?
+* Factor running model code out of DQN class?
 * Compare forms of loss eg. one_hot multiply or gather
+* Run and report as per hw3 (ie. at least those env's and any key notes from that report)
 * Why does performance peak then degrade on lander? Try different learning rate schedule
 * Why does Lambda cast layer only work with variable and not class variable? To do with custom objects
