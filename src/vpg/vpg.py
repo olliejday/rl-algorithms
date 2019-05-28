@@ -107,6 +107,10 @@ class VanillaPolicyGradients:
         self.old_logprob_placeholder = tf.placeholder(shape=[None], name="old_logprob", dtype=tf.float32)
 
     def setup_inference(self, model_outputs):
+        """
+        Constructs the symbolic operation for the policy network outputs,
+            which are the parameters of the policy distribution p(a|s)
+        """
         if self.discrete:
             # here model outputs are the logits
             self.sampled_ac = tf.squeeze(tf.multinomial(model_outputs, 1), axis=1)
@@ -123,6 +127,9 @@ class VanillaPolicyGradients:
         return - 0.5 * tf.reduce_sum(((mu - x) / std) ** 2 + 2 * log_std + np.log(2 * np.pi), axis=1)
 
     def setup_loss(self, policy_parameters):
+        """
+        Sets up policy gradient loss operations for the model.
+        """
         # we apply a softmax to get the log probabilities in discrete case
         if self.discrete:
             model_logits = policy_parameters
@@ -217,6 +224,8 @@ class VanillaPolicyGradients:
 
     def sum_of_rewards(self, rew_n):
         """
+        Monte Carlo estimation of the Q function.
+
         Computes discounted sum of rewards for a list of lists of returns each time step.
         Ie. If got reward of one each time step would have
         [[0],
@@ -255,7 +264,8 @@ class VanillaPolicyGradients:
 
     def compute_advantage(self, ob_no, q_n):
         """
-        If using neural network baseline then here we compute the estimated values and adjust the sums of rewards.
+        If using neural network baseline then here we compute the estimated values and adjust the sums of rewards
+        to compute advantages.
         """
         # Computing Baselines
         if self.nn_baseline:
@@ -289,6 +299,9 @@ class VanillaPolicyGradients:
         return adv_n
 
     def estimate_return(self, ob_no, rew_n):
+        """
+        Estimates the returns over a set of trajectories.
+        """
         q_n = self.sum_of_rewards(rew_n)
         adv_n = self.compute_advantage(ob_no, q_n)
         # Advantage Normalization
@@ -299,6 +312,9 @@ class VanillaPolicyGradients:
         return q_n, adv_n
 
     def update_parameters(self, ob_no, ac_na, q_n, adv_n, logprob_n):
+        """
+        Update function to call to train policy and (possibly) neural network baseline.
+        """
         # Optimizing Neural Network Baseline
         if self.nn_baseline:
             # If a neural network baseline is used, set up the targets and the inputs for the
