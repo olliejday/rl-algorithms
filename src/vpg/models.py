@@ -1,5 +1,9 @@
 from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Flatten
 
+"""
+Model should be a function that takes an input place holder and an output size and returns the model outputs
+for a model built on the input placeholder.
+"""
 
 def cnn_medium(input_placeholder, output_size):
     """

@@ -3,13 +3,12 @@ import numpy as np
 import time
 import keras.backend as keras_backend
 
-
 from src.vpg.utils import VPGBuffer, normalise, GradientBatchTrainer
 
 
-# TODO: comment this class and README
 class VanillaPolicyGradients:
-    def __init__(self, model_fn, env,
+    def __init__(self, model_fn,
+                 env,
                  discrete=True,
                  learning_rate=5e-3,
                  nn_baseline=False,
@@ -22,17 +21,41 @@ class VanillaPolicyGradients:
                  normalise_advantages=True,
                  gradient_batch_size=100
                  ):
+
         """
-        Note that model_fn and (optionally) nn_baseline_fn will be called to construct the TF graph for these operations.
-        eg. self.model = model_fn()
+        Run Vanilla Policy Gradients algorithm.
 
-        min_timesteps_per_batch is number of timesteps of data to collect before updating parameters.
-        gradient_batch_size is to split a batch into mini-batches which the gradient is average over to allow larger
-        min_timesteps_per_batch than fits into GPU memory in one go
-
-        :param model_fn:
-        :param env:
-        :param kwargs:
+        Parameters
+        ----------
+        model_fn: src.vpg.models.model
+            Model to use for computing the policy, see models.py.
+        env: gym.Env
+            gym environment to train on.
+        discrete: bool
+            Whether the environment actions are discrete or continuous
+        learning_rate: float
+            Learning rate to train with.
+        nn_baseline: bool
+            Whether to use a neural network baseline when computing advantages
+        nn_baseline_fn: src.vpg.models.model
+            Model function to compute value baseline, see models.py.
+            Ignored if nn_baseline=False.
+            Must be set if nn_baseline=True.
+        render_every: int
+            Render an episode regularly through training to monitor progress
+        max_path_length: int
+            Max number of timesteps in an episode before stopping.
+        min_timesteps_per_batch: int
+            Min number of timesteps to gather for use in training updates.
+        reward_to_go: bool
+            Whether to use reward to go or whole trajectory rewards when discounting and computing advantage.
+        gamma: float
+            Discount rate
+        normalise_advantages: bool
+            Whether to normalise advantages.
+        gradient_batch_size: int
+            To split a batch into mini-batches which the gradient is averaged over to allow larger
+            min_timesteps_per_batch than fits into GPU memory in one go.
         """
         self.env = env
         # Is this env continuous, or self.discrete?
@@ -135,6 +158,10 @@ class VanillaPolicyGradients:
             self.baseline_batch_trainer = GradientBatchTrainer(baseline_loss, self.learning_rate)
 
     def setup_graph(self):
+        """
+        Setup the model, TF graph for inference and loss.
+        Call this before training.
+        """
         self.setup_placeholders()
 
         model_outputs = self.model_fn(self.ob_placeholder, self.ac_dim)
@@ -151,6 +178,10 @@ class VanillaPolicyGradients:
         self.tf_sess.run(tf.global_variables_initializer())
 
     def sample_trajectories(self, itr):
+        """
+        Call during training. Calls sample_trajectory to gather enough timesteps for a batch of training.
+        :param itr: iteration of training. Used to render frequently to monitor progress.
+        """
         # Collect paths until we have enough timesteps
         buffer = VPGBuffer()
         while True:
@@ -162,6 +193,12 @@ class VanillaPolicyGradients:
         return buffer
 
     def sample_trajectory(self, buffer, render):
+        """
+        Samples a trajectory from the environment (ie. one episode).
+        :param buffer: buffer to store experience in
+        :param render: flag whether to render this episode.
+        :return:
+        """
         ob_, rew = self.env.reset(), 0
         steps = 0
         while True:
@@ -179,6 +216,15 @@ class VanillaPolicyGradients:
                 break
 
     def sum_of_rewards(self, rew_n):
+        """
+        Computes discounted sum of rewards for a list of lists of returns each time step.
+        Ie. If got reward of one each time step would have
+        [[0],
+        [0, 1],
+        [0, 1, 2],
+        ...
+        [0, 1, ..., N]]
+        """
         if self.reward_to_go:
             # make discount matrix for longest trajectory, N, it's a triangle matrix to offset the timesteps:
             # [gamma^0 gamma^1 ... gamma^N]
@@ -208,6 +254,9 @@ class VanillaPolicyGradients:
         return q_n
 
     def compute_advantage(self, ob_no, q_n):
+        """
+        If using neural network baseline then here we compute the estimated values and adjust the sums of rewards.
+        """
         # Computing Baselines
         if self.nn_baseline:
             # If nn_baseline is True, use your neural network to predict reward-to-go

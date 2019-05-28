@@ -1,26 +1,23 @@
 #TODO:
 
 * See below *s
-* Need to comment src.vpg.vpg and src.dqn.dqn
-* Update READMEs - implementation details, save theory for blog.
-* Make cmd line args for mains??
-* Factor out snake-gym dependency or make it possible to run without it and link where to install it if they want to.
+* Update READMEs both run and src and overall README - implementation details, save theory for blog.
+* Factor out snake gym into a branch, just have simpler examples in main repo. See runs in homeworks for
+minimum to ship with example runs of, also see reports for things to mention.
 * Add sources eg. to DQN replay buffer etc. (put them in README)
 * Add links to blog (and links from blog to here)
-* Make a separate branch or folder for experiments - have the algorithm code in one place and the runs in another.
 * delete this todo.txt!!
 
 PG
 
 * Could be a bit cleaner with model.predict instead of sess.run() for rollouts?
+* Setup model saving and loading and running (see DQN format in /run). Ie. make Training code have example setups to be clear
+how to run own experiments, use cmd line to plot and run.
 * LOTS OF UNTESTED CHANGES - DO SOME DEBUG TESTS
-* Run and report as per hw2 (ie. at least those env's and any key notes from that report)
 * Add a run on some toy env
 
 DQN
 
-* Factor running model code out of DQN class?
 * Compare forms of loss eg. one_hot multiply or gather
-* Run and report as per hw3 (ie. at least those env's and any key notes from that report)
 * Why does performance peak then degrade on lander? Try different learning rate schedule
 * Why does Lambda cast layer only work with variable and not class variable? To do with custom objects

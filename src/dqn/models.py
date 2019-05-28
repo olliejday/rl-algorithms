@@ -17,8 +17,22 @@ model_outputs = model_fn(self.ob_placeholder_float)
 model = Model(self.ob_placeholder, self.q_func_ob)
 """
 
+# Abstract class of a Model
+# Must update the __init__ with the Keras layers defining the model
+class ModelClass:
+    def __init__(self):
+        self.model_in = None
+        self.model_hidden = [None]
+        self.model_out = None
 
-class DQNCNNModelKerasSmall:
+    def __call__(self, ob_placeholder):
+        x = self.model_in(ob_placeholder)
+        for layer in self.model_hidden:
+            x = layer(x)
+        return self.model_out(x)
+
+
+class DQNCNNModelKerasSmall(ModelClass):
     """
     Architecture inspired by original DeepMind paper, adjusted the strides and kernels to suit smaller grid sizes.
     """
@@ -30,14 +44,8 @@ class DQNCNNModelKerasSmall:
                              Flatten(), Dense(264, activation="relu")]
         self.model_out = Dense(output_size)
 
-    def __call__(self, ob_placeholder):
-        x = self.model_in(ob_placeholder)
-        for layer in self.model_hidden:
-            x = layer(x)
-        return self.model_out(x)
 
-
-class DQNFCModelKeras:
+class DQNFCModelKeras(ModelClass):
     """
     A simple fully connected model.
     """
@@ -46,9 +54,3 @@ class DQNFCModelKeras:
         self.model_in = Dense(64, activation="relu")
         self.model_hidden = [Dense(64, activation="relu")]
         self.model_out = Dense(output_size)
-
-    def __call__(self, ob_placeholder):
-        x = self.model_in(ob_placeholder)
-        for layer in self.model_hidden:
-            x = layer(x)
-        return self.model_out(x)

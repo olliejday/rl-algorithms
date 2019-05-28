@@ -11,8 +11,6 @@ from keras.models import load_model
 from src.dqn.utils import LinearSchedule, huber_loss, get_wrapper_by_name, DQNReplayBuffer
 
 
-# TODO: comment and readme this class
-# TODO: comment the model class then call as fn thing
 class DQN():
     def __init__(
             self,
@@ -34,19 +32,58 @@ class DQN():
             double_q=True,
             log_every_n_steps=1e5,
             integer_observations=True,):
+        """
+        Run Deep Q-learning algorithm.
+
+        All schedules are w.r.t. total number of steps taken in the environment.
+
+        Parameters
+        ----------
+        env: gym.Env
+            gym environment to train on.
+        model_class: src.dqn.models.Model
+            Model to use for computing the q function.
+            The model should be a class so that we can setup keras layer sharing, see models.py
+        optimizer_spec: src.dqn.utils.OptimizerSpec
+            Specifying the constructor and kwargs, as well as learning rate schedule
+            for the optimizer
+        exploration: src.dqn.utils.Schedule
+            schedule for probability of chosing random action.
+        replay_buffer_size: int
+            How many memories to store in the replay buffer.
+        batch_size: int
+            How many transitions to sample each time experience is replayed.
+        gamma: float
+            Discount Factor
+        learning_starts: int
+            After how many environment steps to start replaying experiences
+        learning_freq: int
+            How many steps of environment to take between every experience replay
+        frame_history_len: int
+            How many past frames to include as input to the model.
+        target_update_freq: int
+            How many experience replay rounds (not steps!) to perform between
+            each update to the target Q network
+        grad_norm_clipping: float or None
+            If not None gradients' norms are clipped to this value.
+        double_q: bool
+            If True, then use double Q-learning to compute target values. Otherwise, use vanilla DQN.
+        """
 
         assert type(env.observation_space) == gym.spaces.Box
         assert type(env.action_space) == gym.spaces.Discrete
 
+        # environment parameters
         self.env = env
         self.ob_dim = env.observation_space.shape
         self.ac_dim = env.action_space.n
         self.integer_observations = integer_observations
 
-        # the model should be a class so that we can setup keras layer sharing
+        # have separate weights for target and q_model
         self.q_model_class = model_class
         self.target_model_class = model_class
 
+        # model parameters
         self.target_update_freq = target_update_freq
         self.optimizer_spec = optimizer_spec
         self.batch_size = batch_size
@@ -62,7 +99,7 @@ class DQN():
         self.replay_buffer_size = replay_buffer_size
         self.frame_history_len = frame_history_len
 
-        # make models dir
+        # make directory to save models
         if self.experiments_path != "":
             save_dir = os.path.join(self.experiments_path, "models")
             if not os.path.exists(save_dir):
@@ -80,7 +117,9 @@ class DQN():
         self.t = 0
 
     def __str__(self):
-        # for logging
+        """
+        For printing the parameters of an experiment to logs.
+        """
 
         to_str = "batch_size: {}, gamma: {}, learning_starts: {}, learning_freq: {}, " \
                  "frame_history_len: {}, target_update_freq: {}, grad_norm_clipping: {}, "
@@ -137,6 +176,9 @@ class DQN():
         self.target_q_func_vars = self.target_model.trainable_weights
 
     def setup_loss(self):
+        """
+        Define the loss and training operations.
+        """
         # Define the loss tf operation
         if self.double_q:  # double DQN, use current network to evaluate actions, max_value_action = argmax_{a'} Q_{phi}(s', a')
             max_value_action = tf.argmax(self.q_func_next_ob, axis=1, name="max_value_action", output_type=tf.int32)
@@ -179,6 +221,10 @@ class DQN():
         self.replay_buffer_idx = None
 
     def setup_graph(self):
+        """
+        Setup the model, TF graph for inference and loss.
+        Call this before training.
+        """
         # we init the model class to setup the model. It can then be called as a function on an input placeholder to
         # return the outputs
         self.q_model_fn = self.q_model_class(self.ac_dim)
@@ -196,6 +242,10 @@ class DQN():
         self.tf_sess.run(tf.global_variables_initializer())
 
     def step_env(self):
+        """
+        Take one step in the environment.
+        Epsilon greedy exploration
+        """
         # store the latest observation
         idx = self.replay_buffer.store_frame(self.last_obs)
 
@@ -233,6 +283,11 @@ class DQN():
         self.last_obs = obs
 
     def update_model(self):
+        """
+        The model update call.
+        Minimises loss using the optimizer spec.
+        Updates target model every target_update_freq timesteps.
+        """
         if (self.t > self.learning_starts and
                 self.t % self.learning_freq == 0 and
                 self.replay_buffer.can_sample(self.batch_size)):
@@ -278,12 +333,23 @@ class DQN():
         return None
 
     def save_model(self):
-        fpath = os.path.join(self.experiments_path, "models", "model-{}.h5".format(self.t))
-        self.q_model.save(filepath=fpath)
+        """
+        Save current DQN Q-network model.
+        """
+        if self.experiments_path != "":
+            fpath = os.path.join(self.experiments_path, "models", "model-{}.h5".format(self.t))
+            self.q_model.save(filepath=fpath)
 
 
 def run_model(env, fpath, frame_history_len, integer_observations,
               replay_buffer_size=1000000, n_episodes=3, sleep=0.01):
+    """
+    Run a saved, trained model.
+    :param env: environment to run in
+    :param fpath: file path of model to run
+    :param n_episodes: number of episodes to run
+    :param sleep: time to sleep between steps
+    """
     q_model = load_model(fpath, custom_objects={'tf': tf})
     replay_buffer = DQNReplayBuffer(replay_buffer_size, frame_history_len, integer_observations)
 

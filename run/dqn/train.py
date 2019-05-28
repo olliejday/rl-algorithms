@@ -79,7 +79,7 @@ def train_lander():
         lr_schedule=lr_schedule,
         kwargs={}
     )
-    train("dqn_lander",
+    train("dqn_lander1",
           "LunarLander-v2",
           DQNFCModelKeras,
           optimizer,
