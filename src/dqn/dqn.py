@@ -281,34 +281,35 @@ class DQN():
         fpath = os.path.join(self.experiments_path, "models", "model-{}.h5".format(self.t))
         self.q_model.save(filepath=fpath)
 
-    def load_model(self, fpath):
-        self.q_model = load_model(fpath, custom_objects={'tf': tf})
 
-    def run_model(self, n_episodes=3, sleep=0.01):
-        self.setup_replay_buffer()
-        for i in range(n_episodes):
+def run_model(env, fpath, frame_history_len, integer_observations,
+              replay_buffer_size=1000000, n_episodes=3, sleep=0.01):
+    q_model = load_model(fpath, custom_objects={'tf': tf})
+    replay_buffer = DQNReplayBuffer(replay_buffer_size, frame_history_len, integer_observations)
 
-            done = False
-            obs = self.env.reset()
-            rwd = 0
-            while not done:
-                # store the latest observation
-                idx = self.replay_buffer.store_frame(obs)
+    for i in range(n_episodes):
 
-                # encode the current observation, [None] adds a dimension of 1 for the batch
-                encoded_observation = self.replay_buffer.encode_recent_observation()[None]
-                Q_values = self.q_model.predict(encoded_observation)
-                action = np.argmax(Q_values)
+        done = False
+        obs = env.reset()
+        rwd = 0
+        while not done:
+            # store the latest observation
+            idx = replay_buffer.store_frame(obs)
 
-                # step env
-                obs, reward, done, info = self.env.step(action)
-                self.env.render()
+            # encode the current observation, [None] adds a dimension of 1 for the batch
+            encoded_observation = replay_buffer.encode_recent_observation()[None]
+            Q_values = q_model.predict(encoded_observation)
+            action = np.argmax(Q_values)
 
-                rwd += reward
+            # step env
+            obs, reward, done, info = env.step(action)
+            env.render()
 
-                # store this step
-                self.replay_buffer.store_effect(idx, action, reward, done)
+            rwd += reward
 
-                time.sleep(sleep)
+            # store this step
+            replay_buffer.store_effect(idx, action, reward, done)
 
-            print("Reward: {}".format(rwd))
+            time.sleep(sleep)
+
+        print("Reward: {}".format(rwd))

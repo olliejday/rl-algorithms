@@ -5,7 +5,6 @@ import tensorflow as tf
 from src.dqn.models import DQNFCModelKeras, DQNCNNModelKerasSmall
 from src.dqn.dqn import DQN
 from src.dqn.utils import DQNTrainingLogger, get_env, PiecewiseSchedule, ConstantSchedule, OptimizerSpec
-from src.common.utils import plot_training_curves
 
 
 def train(exp_name,
@@ -152,64 +151,6 @@ def train_snake(env_type):
           integer_observations=True)
 
 
-def run(exp_name,
-        env_name,
-        model_number=None,
-        seed=123,
-        debug=False,
-        **kwargs):
-    """
-    General running setup for saved models.
-    :param exp_name: experiment directory to look for models in
-    :param env_name: environment to run model in
-    :param model_number: model number to load, if None then latest model is loaded
-    :param seed: seed to set for system
-    :param debug: debug flag for seeding reproducibility vs performance
-    :param kwargs: any kwargs to pass to DQN __init__
-    :return:
-    """
-    print('Random seed = %d' % seed)
-    env = gym.make(env_name)
-    env = get_env(env, seed, debug)
-
-    root_dir = os.path.dirname(os.path.realpath(__file__))
-    models_dir = os.path.join(root_dir, "experiments", exp_name, "models")
-    if model_number is None:
-        # then get latest model
-        model_files = os.listdir(models_dir)
-        model_number = max([int(f.split(".")[0].split("-")[1]) for f in model_files])
-    model_path = os.path.join(models_dir, "model-{}.h5".format(model_number))
-
-    # Don't need to pass model_class because we load model
-    # Don't need optimizer_spec because we are not training
-    dqn = DQN(env=env, model_class=None, optimizer_spec=None, **kwargs)
-    dqn.load_model(model_path)
-    print("Loaded model\n")
-    dqn.run_model()
-    env.close()
-
-
-def plot_experiment(exp_name):
-    """
-    Plots an experiment saved in logs.
-    :param exp_name: experiment name to plot
-    """
-    root_dir = os.path.dirname(os.path.realpath(__file__))
-    log_path = os.path.join(root_dir, "experiments/{}/logs/logs.txt".format(exp_name))
-    plot_training_curves(log_path)
-
-
-def run_lander(exp_name, model_number=None):
-    run(exp_name, "LunarLander-v2", model_number, debug=True, integer_observations=False, frame_history_len=1)
-
-
-def run_snake(exp_name, env_type, model_number=None):
-    run(exp_name, "snake-{}-v0".format(env_type), model_number)
-
-
 if __name__ == "__main__":
-    # run_snake("dqn_snake_grid", "grid")
-    plot_experiment("dqn_lander")
-    # train_lander()
+    train_lander()
     # train_snake("grid")
-    # train_snake("stacked")

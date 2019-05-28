@@ -1,6 +1,5 @@
 import os
 import tensorflow as tf
-import keras.backend as keras_backend
 import random
 import numpy as np
 import pandas as pd
@@ -13,6 +12,8 @@ def set_keras_session(debug):
     :param debug: if True then we use config for better reproducibility but slightly reduced performance,
     otherwise we use better performance (but GPU usage may mean imperfect reproducibility)
     """
+    import keras.backend as keras_backend
+
     if debug:
         # single threads and no GPU for better reproducibility
         session_conf = tf.ConfigProto(intra_op_parallelism_threads=1,
@@ -48,6 +49,8 @@ def plot_training_curves(log_path, save_to=""):
     :param save_to:
     :return:
     """
+    assert os.path.exists(log_path), "Invalid path for log file, does not exist: {}".format(log_path)
+
     df = pd.read_csv(log_path, sep=", ", engine="python")
     plt.plot(df["Timesteps"], df["MeanReturn"], label="Mean Return", color="tomato")
     plt.fill_between(df["Timesteps"], df["MeanReturn"] - df["StdReturn"], df["MeanReturn"] + df["StdReturn"],
