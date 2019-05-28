@@ -4,7 +4,7 @@
 * Update READMEs both run and src and overall README - implementation details, save theory for blog.
 * Factor out snake gym into a branch, just have simpler examples in main repo. See runs in homeworks for
 minimum to ship with example runs of, also see reports for things to mention.
-* Add sources eg. to DQN replay buffer etc. (put them in README)
+* Add sources eg. to DQN replay buffer etc. (put them in README links to original github code of cs294 and link to papers)
 * Add links to blog (and links from blog to here)
 * delete this todo.txt!!
 
