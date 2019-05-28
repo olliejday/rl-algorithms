@@ -1,4 +1,4 @@
-from keras.layers import Input, Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Flatten
+from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Flatten
 
 
 def cnn_medium(input_placeholder, output_size):

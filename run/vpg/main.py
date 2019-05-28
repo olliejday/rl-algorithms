@@ -3,8 +3,8 @@ import os
 
 from src.vpg.vpg import VanillaPolicyGradients
 from src.vpg.utils import VPGTrainingLogger
-from src.common.utils import set_global_seeds, plot_training_curves
 from src.vpg.models import cnn_small, fc_small, cnn_medium
+from src.common.utils import set_global_seeds, plot_training_curves
 
 
 def train(env_name, exp_name, model_fn, debug=False, seed=1, n_iter=100, **kwargs):

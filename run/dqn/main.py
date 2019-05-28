@@ -209,7 +209,7 @@ def run_snake(exp_name, env_type, model_number=None):
 
 if __name__ == "__main__":
     # run_snake("dqn_snake_grid", "grid")
-    # plot_experiment("dqn_lander", save=True)
-    train_lander()
+    plot_experiment("dqn_lander")
+    # train_lander()
     # train_snake("grid")
     # train_snake("stacked")
