@@ -4,6 +4,8 @@ import matplotlib as mpl
 import time
 import os
 
+from keras.layers import Layer
+
 from src.common.utils import plot_training_curves
 
 
@@ -237,3 +239,18 @@ class GradientBatchTrainer:
         for fd in self.get_feed_dicts(feed_dict, batch_size):
             sess.run(self.accumulate_ops, feed_dict=fd)
         sess.run(self.train_step)
+
+
+class GatherLayer(Layer):
+    """
+    Keras custom layer to gather 1D array of indices, ind, of multi dimensional x.
+    For ith row of x, gathers the item at index ind[i].
+    """
+    def __init__(self, x, name):
+        super(GatherLayer, self).__init__(name=name)
+        self.name = name
+        self.x = x
+
+    def call(self, inds):
+        indices = tf.stack([tf.range(tf.shape(inds)[0]), inds], axis=1)
+        return tf.gather_nd(self.x, indices, name=self.name)

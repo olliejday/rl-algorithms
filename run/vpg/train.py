@@ -61,7 +61,8 @@ def train_cartpole(exp_name="vpg-debug"):
     env_name = "CartPole-v0"
     model_fn = fc_small
 
-    train(env_name, exp_name, model_fn, debug=True, nn_baseline=True, nn_baseline_fn=fc_small)
+    train(env_name, exp_name, model_fn, debug=True, nn_baseline=True, nn_baseline_fn=fc_small,
+          min_timesteps_per_batch=5000)
 
 
 def train_inverted_pendulum(exp_name="vpg-debug"):
@@ -81,5 +82,5 @@ if __name__ == "__main__":
 
     train(env_name, exp_name, model_fn)
     """
-    # train_cartpole()
+    train_cartpole()
     # train_inverted_pendulum()
