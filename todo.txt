@@ -1,17 +1,13 @@
 #TODO:
 
 * See below *s
-* Update READMEs both run and src and overall README - implementation details, save theory for blog.
-* Add sources eg. to DQN replay buffer etc. (put them in README links to original github code of cs294 and link to papers)
 * Factor out snake gym into a branch (make sure readmes etc up to date with main branch),
-just have simpler examples in main repo.
-See runs in homeworks for minimum to ship with example runs of, also see reports for things to mention.
+* See runs in homeworks for minimum to ship with example runs of, also see reports for things to mention.
 * Add links to blog (and links from blog to here)
 * delete this todo.txt!!
 
 PG
 
-* Could be a bit cleaner with model.predict instead of sess.run() for rollouts?
 * Setup model saving and loading and running (see DQN format in /run). Ie. make Training code have example setups to be clear
 how to run own experiments, use cmd line to plot and run.
 * LOTS OF UNTESTED CHANGES - DO SOME DEBUG TESTS
@@ -19,5 +15,4 @@ how to run own experiments, use cmd line to plot and run.
 
 DQN
 
-* Compare forms of loss eg. one_hot multiply or gather
 * Why does performance peak then degrade on lander? Try different learning rate schedule

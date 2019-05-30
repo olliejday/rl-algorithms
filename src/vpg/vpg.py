@@ -117,7 +117,7 @@ class VanillaPolicyGradients:
             return model_outputs
         else:
             sy_mean = model_outputs
-            sy_logstd = tf.get_variable(name="log_std", initializer=-0.5 * np.ones(self.ac_dim, dtype=np.float32))
+            sy_logstd = tf.get_variable(name="log_std", shape=[self.ac_dim])
             sample_z = tf.random.normal(shape=tf.shape(sy_mean), name="continuous_sample_z")
             self.sampled_ac = sy_mean + sy_logstd * sample_z
             return sy_mean, sy_logstd
@@ -173,8 +173,6 @@ class VanillaPolicyGradients:
 
         model_outputs = self.model_fn(self.ob_placeholder, self.ac_dim)
 
-        # We can sample actions from this action distribution.
-        # This will be called in Agent.sample_trajectory() where we generate a rollout.
         policy_parameters = self.setup_inference(model_outputs)
 
         self.setup_loss(policy_parameters)
