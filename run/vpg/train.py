@@ -7,7 +7,7 @@ from src.vpg.models import fc_small
 from src.common.utils import set_global_seeds
 
 
-def train(env_name, exp_name, model_fn, debug=False, seed=1, n_iter=100, **kwargs):
+def train(env_name, exp_name, model_fn, debug=False, seed=1, n_iter=100, save_every=25, **kwargs):
     """
     General training setup.
     :param env_name: Environment name to train on
@@ -16,6 +16,7 @@ def train(env_name, exp_name, model_fn, debug=False, seed=1, n_iter=100, **kwarg
     :param debug: debug flag for seeding reproducibility vs performance
     :param seed: seed to setup system
     :param n_iter: number of iterations to train for
+    :param save_every: number of iterations to save models at
     :param kwargs: arguments to pass to VPG model __init__
     """
     env = gym.make(env_name)
@@ -49,6 +50,9 @@ def train(env_name, exp_name, model_fn, debug=False, seed=1, n_iter=100, **kwarg
         entropy, kl = vpg.update_parameters(obs, acs, q_n, adv_n, logprobs)
 
         training_logger.log(itr, [sum(r) for r in rwds], [len(r) for r in rwds], entropy, kl)
+
+        if itr % save_every == 0:
+            vpg.save_model(training_logger.timesteps)
 
     env.close()
 

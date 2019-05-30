@@ -4,6 +4,7 @@ import time
 import os
 import keras.backend as keras_backend
 from keras import Model, Input
+from keras.models import load_model
 
 from src.vpg.utils import VPGBuffer, normalise, GradientBatchTrainer
 
@@ -360,3 +361,32 @@ class VanillaPolicyGradients:
                                              self.ac_placeholder: ac_na[:self.gradient_batch_size],
                                              self.old_logprob_placeholder: logprob_n[:self.gradient_batch_size]})
         return approx_entropy, approx_kl
+
+
+def run_model(env, fpath, n_episodes=3, sleep=0.01):
+    """
+    Run a saved, trained model.
+    :param env: environment to run in
+    :param fpath: file path of model to run
+    :param n_episodes: number of episodes to run
+    :param sleep: time to sleep between steps
+    """
+    policy_model = load_model(fpath)
+
+    for i in range(n_episodes):
+
+        done = False
+        obs = env.reset()
+        rwd = 0
+        while not done:
+            action, _ = policy_model.predict([obs])
+
+            # step env
+            obs, reward, done, info = env.step(action)
+            env.render()
+
+            rwd += reward
+
+            time.sleep(sleep)
+
+        print("Reward: {}".format(rwd))

@@ -8,8 +8,6 @@
 
 PG
 
-* Setup model saving and loading and running (see DQN format in /run). Ie. make Training code have example setups to be clear
-how to run own experiments, use cmd line to plot and run.
 * LOTS OF UNTESTED CHANGES - DO SOME DEBUG TESTS
 * Add a run on some toy env
 
