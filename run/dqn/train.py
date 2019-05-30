@@ -101,9 +101,7 @@ def train_lander():
           integer_observations=False)
 
 
-def train_snake(env_type):
-    assert env_type == "stacked" or env_type == "grid"
-
+def train_atari(env_name):
     num_timesteps = 1e8
     # This is just a rough estimate
     num_iterations = float(num_timesteps) / 4.0
@@ -130,8 +128,8 @@ def train_snake(env_type):
         ], outside_value=0.01
     )
 
-    train("dqn_snake_{}".format(env_type),
-          "snake-{}-v0".format(env_type),
+    train("dqn_atari_{}".format(env_name),
+          env_name,
           DQNCNNModelKerasSmall,
           optimizer,
           num_timesteps=num_timesteps,
@@ -139,18 +137,18 @@ def train_snake(env_type):
           replay_buffer_size=1000000,
           batch_size=32,
           gamma=0.99,
-          learning_starts=5e4,
+          learning_starts=50000,
           learning_freq=4,
           frame_history_len=4,
           target_update_freq=10000,
           grad_norm_clipping=10,
           delta=1.0,
-          save_every=2e6,
+          save_every=5e5,
           double_q=True,
           log_every_n_steps=10000,
           integer_observations=True)
 
 
 if __name__ == "__main__":
-    train_lander()
-    # train_snake("grid")
+    # train_lander()
+    train_atari("PongNoFrameskip-v4")
