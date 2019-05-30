@@ -1,7 +1,9 @@
 import tensorflow as tf
 import numpy as np
 import time
+import os
 import keras.backend as keras_backend
+from keras import Model, Input
 
 from src.vpg.utils import VPGBuffer, normalise, GradientBatchTrainer
 
@@ -9,6 +11,7 @@ from src.vpg.utils import VPGBuffer, normalise, GradientBatchTrainer
 class VanillaPolicyGradients:
     def __init__(self, model_fn,
                  env,
+                 experiments_path="",
                  discrete=True,
                  learning_rate=5e-3,
                  nn_baseline=False,
@@ -31,6 +34,8 @@ class VanillaPolicyGradients:
             Model to use for computing the policy, see models.py.
         env: gym.Env
             gym environment to train on.
+        experiments_path: string
+            path to save models to during training
         discrete: bool
             Whether the environment actions are discrete or continuous
         learning_rate: float
@@ -67,6 +72,8 @@ class VanillaPolicyGradients:
             self.ac_dim = env.action_space.shape[0]
         self.model_fn = model_fn
 
+        self.experiments_path = experiments_path
+
         self.learning_rate = learning_rate
         self.nn_baseline = nn_baseline
         self.nn_baseline_fn = nn_baseline_fn
@@ -98,7 +105,7 @@ class VanillaPolicyGradients:
         return to_string
 
     def setup_placeholders(self):
-        self.ob_placeholder = tf.placeholder(shape=[None] + [dim for dim in self.ob_dim], name="ob", dtype=tf.float32)
+        self.ob_placeholder = Input(shape=[dim for dim in self.ob_dim], name="ob", dtype=tf.float32)
         if self.discrete:
             self.ac_placeholder = tf.placeholder(shape=[None], name="ac", dtype=tf.int32)
         else:
@@ -164,6 +171,12 @@ class VanillaPolicyGradients:
                                                 name="nn_baseline_loss")
             self.baseline_batch_trainer = GradientBatchTrainer(baseline_loss, self.learning_rate)
 
+    def setup_model(self):
+        """
+        Defines a Keras model
+        """
+        self.policy_model = Model(inputs=self.ob_placeholder, outputs=[self.sampled_ac, self.logprob_sampled])
+
     def setup_graph(self):
         """
         Setup the model, TF graph for inference and loss.
@@ -177,10 +190,21 @@ class VanillaPolicyGradients:
 
         self.setup_loss(policy_parameters)
 
+        # setup a model for model saving
+        self.setup_model()
+
     def init_tf(self):
         # to change tf Session config, see utils.set_keras_session()
         self.tf_sess = keras_backend.get_session()
         self.tf_sess.run(tf.global_variables_initializer())
+
+    def save_model(self, timestep):
+        """
+        Save current policy model.
+        """
+        if self.experiments_path != "":
+            fpath = os.path.join(self.experiments_path, "models", "model-{}.h5".format(timestep))
+            self.policy_model.save(filepath=fpath)
 
     def sample_trajectories(self, itr):
         """
@@ -211,8 +235,7 @@ class VanillaPolicyGradients:
             if render:
                 self.env.render()
                 time.sleep(0.1)
-            ac, logprob = self.tf_sess.run([self.sampled_ac, self.logprob_sampled],
-                                        feed_dict={self.ob_placeholder: np.array([ob])})
+            ac, logprob = self.policy_model.predict([ob])
             ac = ac[0]
             ob_, rew, done, _ = self.env.step(ac)
             buffer.add(ob, ac, rew, logprob[0])
