@@ -1,7 +1,7 @@
 #TODO:
 
-* See below *s
-* Factor out snake gym into a branch (make sure readmes etc up to date with main branch),
+* Add clear example usage of train run and plot commands.
+* Factor out snake gym into a branch (make sure readmes etc up to date with main branch), link to and from snake repo
 * See runs in homeworks for minimum to ship with example runs of, also see reports for things to mention.
 * Add links to blog (and links from blog to here)
 * delete this todo.txt!!
@@ -9,7 +9,6 @@
 PG
 
 * LOTS OF UNTESTED CHANGES - DO SOME DEBUG TESTS
-* Add a run on some toy env
 
 DQN
 
