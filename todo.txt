@@ -8,6 +8,8 @@
 
 PG
 
+* note changed back to TF rather than keras in the main of the code
+* need to update README as running models is now done by functions not cmd args
 * finalise cleanest as can be
 
 DQN

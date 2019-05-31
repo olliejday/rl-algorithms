@@ -3,11 +3,9 @@ import numpy as np
 import time
 import os
 import keras.backend as keras_backend
-from keras import Model, Input
-from keras.models import load_model
-from keras.layers import Lambda
+from keras import Input
 
-from src.vpg.utils import VPGBuffer, normalise, GradientBatchTrainer, GatherLayer
+from src.vpg.utils import VPGBuffer, normalise, GradientBatchTrainer, gaussian_likelihood
 
 
 class VanillaPolicyGradients:
@@ -87,8 +85,12 @@ class VanillaPolicyGradients:
         self.normalise_advantages = normalise_advantages
         self.gradient_batch_size = gradient_batch_size
 
-        self.setup_graph()
-        self.init_tf()
+        # make directory to save models
+        if self.experiments_path != "":
+            save_dir = os.path.join(self.experiments_path, "models")
+            if not os.path.exists(save_dir):
+                print("\nMade model directory: {}\n".format(save_dir))
+                os.makedirs(save_dir)
 
     def __str__(self):
         """
@@ -107,7 +109,7 @@ class VanillaPolicyGradients:
         return to_string
 
     def setup_placeholders(self):
-        self.obs_ph = Input(shape=self.ob_dim, name="ob", dtype=tf.float32)
+        self.obs_ph = Input(shape=self.ob_dim, name="ob", dtype="float32")
         if self.discrete:
             self.acs_ph = tf.placeholder(shape=[None], name="ac", dtype=tf.int32)
         else:
@@ -124,27 +126,20 @@ class VanillaPolicyGradients:
         """
         if self.discrete:
             # here model outputs are the logits
-            self.sampled_ac = Lambda(lambda x: tf.squeeze(
-                tf.random.multinomial(x, 1, output_dtype=tf.int32, name="sampled_ac"), axis=1),
-                                     name="sampled_ac")(model_outputs)
+            self.sampled_ac = tf.squeeze(
+                tf.random.categorical(model_outputs, 1, dtype=tf.int32, name="sampled_ac"), axis=1)
             # we apply a softmax to get the log probabilities in discrete case
-            log_prob = Lambda(lambda x: tf.nn.log_softmax(x), name="log_prob")(model_outputs)
-            self.logprob_ac = GatherLayer(log_prob, "logprob_ac")(self.acs_ph)
-            self.logprob_sampled = GatherLayer(log_prob, "logprob_sampled")(self.sampled_ac)
+            log_prob = tf.nn.log_softmax(model_outputs)
+            self.logprob_ac = tf.reduce_sum(tf.one_hot(self.acs_ph, depth=self.ac_dim) * log_prob, axis=1)
+            self.logprob_sampled = tf.reduce_sum(tf.one_hot(self.sampled_ac, depth=self.ac_dim) * log_prob, axis=1)
         else:
             sy_mean = model_outputs
             sy_logstd = tf.get_variable(name="log_std", shape=[self.ac_dim])
             sample_z = tf.random.normal(shape=tf.shape(sy_mean), name="continuous_sample_z")
-            self.sampled_ac = Lambda(lambda x: x + sy_logstd * sample_z, name="sampled_ac")(sy_mean)
+            self.sampled_ac = sy_mean + sy_logstd * sample_z
             # formula for log of a gaussian
-            self.logprob_ac = Lambda(lambda x: self.gaussian_likelihood(x, sy_mean, sy_logstd),
-                                     name="logprob_ac")(self.acs_ph)
-            self.logprob_sampled = Lambda(lambda x: self.gaussian_likelihood(x, sy_mean, sy_logstd),
-                                          name="logprob_sampled")(self.acs_ph)
-
-    def gaussian_likelihood(self, x, mu, log_std):
-        std = tf.exp(log_std) + 1e-8
-        return - 0.5 * tf.reduce_sum(((mu - x) / std) ** 2 + 2 * log_std + np.log(2 * np.pi), axis=1)
+            self.logprob_ac = gaussian_likelihood(self.acs_ph, sy_mean, sy_logstd)
+            self.logprob_sampled = gaussian_likelihood(self.sampled_ac, sy_mean, sy_logstd)
 
     def setup_loss(self):
         """
@@ -166,19 +161,12 @@ class VanillaPolicyGradients:
         if self.nn_baseline:
             assert self.nn_baseline_fn is not None, "nn_baseline option requires a nn_baseline_fn"
             model_outputs = self.nn_baseline_fn(self.obs_ph, 1)
-            self.baseline_prediction = Lambda(lambda x: tf.squeeze(x))(model_outputs)
-            self.baseline_model = Model(inputs=self.obs_ph, outputs=self.baseline_prediction)
+            self.baseline_prediction = tf.squeeze(model_outputs)
             # size None because we have vector of length batch size
             self.baseline_targets = tf.placeholder(tf.float32, shape=[None], name="reward_targets_nn_V")
             baseline_loss = 0.5 * tf.reduce_sum((self.baseline_prediction - self.baseline_targets) ** 2,
                                                 name="nn_baseline_loss")
             self.baseline_batch_trainer = GradientBatchTrainer(baseline_loss, self.learning_rate)
-
-    def setup_model(self):
-        """
-        Defines a Keras model
-        """
-        self.policy_model = Model(inputs=self.obs_ph, outputs=[self.sampled_ac, self.logprob_sampled])
 
     def setup_graph(self):
         """
@@ -188,24 +176,35 @@ class VanillaPolicyGradients:
         self.setup_placeholders()
 
         model_outputs = self.model_fn(self.obs_ph, self.ac_dim)
+
         self.setup_inference(model_outputs)
         self.setup_loss()
 
-        # setup a model for model saving
-        self.setup_model()
+        self.init_tf()
 
     def init_tf(self):
         # to change tf Session config, see utils.set_keras_session()
         self.tf_sess = keras_backend.get_session()
         self.tf_sess.run(tf.global_variables_initializer())
+        self.saver = tf.train.Saver()
 
     def save_model(self, timestep):
         """
         Save current policy model.
         """
         if self.experiments_path != "":
-            fpath = os.path.join(self.experiments_path, "models", "model-{}.h5".format(timestep))
-            self.policy_model.save(filepath=fpath)
+            fpath = os.path.join(self.experiments_path, "models", "model-{}".format(timestep))
+            self.saver.save(self.tf_sess, fpath)
+
+    def load_model(self, model_path=None):
+        """
+        Load a model.
+        If no path passed, loads the latest model.
+        """
+        if model_path is None:
+            model_path = tf.train.latest_checkpoint(os.path.join(self.experiments_path, "models"))
+        self.saver.restore(self.tf_sess, model_path)
+
 
     def sample_trajectories(self, itr):
         """
@@ -236,7 +235,8 @@ class VanillaPolicyGradients:
             if render:
                 self.env.render()
                 time.sleep(0.1)
-            ac, logprob = self.policy_model.predict(np.array(ob)[None])
+            ac, logprob = self.tf_sess.run([self.sampled_ac, self.logprob_sampled],
+                                           feed_dict={self.obs_ph: np.array(ob)[None]})
             ac = ac[0]
             ob_, rew, done, _ = self.env.step(ac)
             buffer.add(ob, ac, rew, logprob[0])
@@ -309,7 +309,8 @@ class VanillaPolicyGradients:
                 end = (i+1) * self.gradient_batch_size
 
                 # prediction from nn baseline
-                baseline_n[start:end] = self.tf_sess.run(self.baseline_prediction, feed_dict={self.obs_ph: ob_no[start:end]})
+                baseline_n[start:end] = self.tf_sess.run(self.baseline_prediction,
+                                                         feed_dict={self.obs_ph: ob_no[start:end]})
 
             # normalise to 0 mean and 1 std
             baseline_n_norm = normalise(baseline_n)
@@ -379,7 +380,7 @@ class VanillaPolicyGradients:
         return approx_entropy, approx_kl
 
 
-def run_model(env, fpath, n_episodes=3, sleep=0.01):
+def run_model(env, model_fn, experiments_path, model_path=None, n_episodes=3, **kwargs):
     """
     Run a saved, trained model.
     :param env: environment to run in
@@ -387,22 +388,17 @@ def run_model(env, fpath, n_episodes=3, sleep=0.01):
     :param n_episodes: number of episodes to run
     :param sleep: time to sleep between steps
     """
-    policy_model = load_model(fpath)
+
+    vpg = VanillaPolicyGradients(model_fn,
+                                 env,
+                                 experiments_path=experiments_path,
+                                 **kwargs)
+    vpg.setup_graph()
+    vpg.load_model(model_path)
+
 
     for i in range(n_episodes):
+        buffer = VPGBuffer()
+        vpg.sample_trajectory(buffer, True)
 
-        done = False
-        obs = env.reset()
-        rwd = 0
-        while not done:
-            action, _ = policy_model.predict(np.array(obs)[None])
-
-            # step env
-            obs, reward, done, info = env.step(action)
-            env.render()
-
-            rwd += reward
-
-            time.sleep(sleep)
-
-        print("Reward: {}".format(rwd))
+        print("Reward: {}".format(sum(buffer.rwds[0])))

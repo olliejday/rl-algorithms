@@ -241,16 +241,6 @@ class GradientBatchTrainer:
         sess.run(self.train_step)
 
 
-class GatherLayer(Layer):
-    """
-    Keras custom layer to gather 1D array of indices, ind, of multi dimensional x.
-    For ith row of x, gathers the item at index ind[i].
-    """
-    def __init__(self, x, name):
-        super(GatherLayer, self).__init__(name=name)
-        self.name = name
-        self.x = x
-
-    def call(self, inds):
-        indices = tf.stack([tf.range(tf.shape(inds)[0]), inds], axis=1)
-        return tf.gather_nd(self.x, indices, name=self.name)
+def gaussian_likelihood(x, mu, log_std):
+    std = tf.exp(log_std) + 1e-8
+    return - 0.5 * tf.reduce_sum(((mu - x) / std) ** 2 + 2 * log_std + np.log(2 * np.pi), axis=1)

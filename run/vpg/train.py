@@ -4,7 +4,7 @@ import numpy as np
 
 from src.vpg.vpg import VanillaPolicyGradients
 from src.vpg.utils import VPGTrainingLogger
-from src.vpg.models import fc_small, fc_medium
+from src.vpg.models import fc_small, fc_medium, cnn_small, cnn_medium
 from src.common.utils import set_global_seeds
 
 
@@ -25,17 +25,21 @@ def train(env_name, exp_name, model_fn, debug=False, seed=1, n_iter=100, save_ev
     # Set random seeds
     set_global_seeds(seed, debug)
 
-    vpg = VanillaPolicyGradients(model_fn,
-                                 env,
-                                 **kwargs)
-
     root_dir = os.path.dirname(os.path.realpath(__file__))
     experiments_path = os.path.join(root_dir, "experiments", exp_name)
+
+    vpg = VanillaPolicyGradients(model_fn,
+                                 env,
+                                 experiments_path=experiments_path,
+                                 **kwargs)
+
     training_logger = VPGTrainingLogger(experiments_path, ["Env_name: {}".format(env_name),
                                                                   "Model_fn: {}".format(model_fn.__name__),
                                                                   "Seed: {}".format(seed),
                                                            str(kwargs),
                                                            str(vpg)])
+
+    vpg.setup_graph()
 
     for itr in range(n_iter):
         buffer = vpg.sample_trajectories(itr)
@@ -52,20 +56,15 @@ def train(env_name, exp_name, model_fn, debug=False, seed=1, n_iter=100, save_ev
 
         training_logger.log(itr, [sum(r) for r in rwds], [len(r) for r in rwds], entropy, kl)
 
-        # if itr % save_every == 0:
-        #     vpg.save_model(training_logger.timesteps)
+        if itr % save_every == 0:
+            vpg.save_model(training_logger.timesteps)
 
     env.close()
 
 
 def train_cartpole(exp_name="vpg-cartpole"):
     train("CartPole-v0", exp_name, fc_small, debug=True, nn_baseline=True, nn_baseline_fn=fc_small, min_timesteps_per_batch=5000,
-          learning_rate=5e-3)
-
-
-def train_inverted_pendulum(exp_name="vpg-ip"):
-    train("InvertedPendulum-v2", exp_name, fc_medium, debug=True, nn_baseline=True, nn_baseline_fn=fc_small,
-          discrete=False, min_timesteps_per_batch=2500, learning_rate=0.01)
+          learning_rate=5e-3, n_iter=50)
 
 
 def train_lander(exp_name="vpg-lander"):
@@ -73,7 +72,11 @@ def train_lander(exp_name="vpg-lander"):
           discrete=False, min_timesteps_per_batch=40000, learning_rate=0.05)
 
 
+def train_pong(exp_name="vpg-pong"):
+    train("Pong-v0", exp_name, cnn_small, debug=True, nn_baseline=True, nn_baseline_fn=cnn_small,
+          discrete=False, min_timesteps_per_batch=10000, learning_rate=0.005)
+
+
 if __name__ == "__main__":
-    train_cartpole()
-    # train_inverted_pendulum()
-    # train_lander()
+    # train_cartpole()
+    train_lander()
