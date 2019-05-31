@@ -64,10 +64,16 @@ def train_cartpole(exp_name="vpg-cartpole"):
           learning_rate=5e-3, n_iter=50)
 
 
+def train_inverted_pendulum(exp_name="vpg-inverted-pendulum"):
+    env = gym.make("InvertedPendulum-v2")
+    train(env, exp_name, fc_small, debug=True, nn_baseline=False, nn_baseline_fn=fc_small, min_timesteps_per_batch=5000,
+          discrete=False, learning_rate=0.01, n_iter=100, gamma=0.9)
+
+
 def train_lander(exp_name="vpg-lander"):
     env = gym.make("LunarLanderContinuous-v2")
     train(env, exp_name, fc_small, debug=True, nn_baseline=True, nn_baseline_fn=fc_small,
-          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.005)
+          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.005, gradient_batch_size=40000)
 
 
 def train_pong(exp_name="vpg-pong"):
@@ -79,6 +85,7 @@ def train_pong(exp_name="vpg-pong"):
 if __name__ == "__main__":
     options = {}
     options['lander'] = train_lander
+    options['inverted-pendulum'] = train_inverted_pendulum
     options['cartpole'] = train_cartpole
     options['pong'] = train_pong
 

@@ -15,13 +15,13 @@ class VanillaPolicyGradients:
                  learning_rate=5e-3,
                  nn_baseline=False,
                  nn_baseline_fn=None,
-                 render_every=10,
+                 render_every=25,
                  max_path_length=1000,
                  min_timesteps_per_batch=10000,
                  reward_to_go=True,
                  gamma=0.99,
                  normalise_advantages=True,
-                 gradient_batch_size=100
+                 gradient_batch_size=1000
                  ):
 
         """
@@ -108,7 +108,7 @@ class VanillaPolicyGradients:
         return to_string
 
     def setup_placeholders(self):
-        self.obs_ph = tf.placeholder(shape=[None] + [dim for dim in self.ob_dim], name="ob", dtype="float32")
+        self.obs_ph = tf.placeholder(shape=[None] + [dim for dim in self.ob_dim], name="ob", dtype=tf.float32)
         if self.discrete:
             self.acs_ph = tf.placeholder(shape=[None], name="ac", dtype=tf.int32)
         else:
@@ -127,8 +127,10 @@ class VanillaPolicyGradients:
                 tf.random.categorical(model_outputs, 1, dtype=tf.int32, name="sampled_ac"), axis=1)
             # we apply a softmax to get the log probabilities in discrete case
             log_prob = tf.nn.log_softmax(model_outputs)
-            self.logprob_ac = tf.reduce_sum(tf.one_hot(self.acs_ph, depth=self.ac_dim) * log_prob, axis=1)
-            self.logprob_sampled = tf.reduce_sum(tf.one_hot(self.sampled_ac, depth=self.ac_dim) * log_prob, axis=1)
+            indices = tf.stack([tf.range(tf.shape(self.acs_ph)[0]), self.acs_ph], axis=1)
+            self.logprob_ac = tf.gather_nd(log_prob, indices, name="logprob_ac")
+            indices = tf.stack([tf.range(tf.shape(self.sampled_ac)[0]), self.sampled_ac], axis=1)
+            self.logprob_sampled = tf.gather_nd(log_prob, indices, name="logprob_sampled")
         else:
             # sample an action from a Normal(sy_mean, exp(sy_logstd) ** 2)
             # we compute this by transforming a standard normal
@@ -151,6 +153,7 @@ class VanillaPolicyGradients:
         # Loss Function and Training Operation
         loss = - tf.reduce_mean(self.logprob_ac * self.adv_ph, name="loss")
 
+        self.update_op = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
         self.policy_batch_trainer = GradientBatchTrainer(loss, self.learning_rate)
 
         # Optional Baseline
@@ -162,9 +165,10 @@ class VanillaPolicyGradients:
             model_outputs = self.nn_baseline_fn(self.obs_ph, 1)
             self.baseline_prediction = tf.squeeze(model_outputs)
             # size None because we have vector of length batch size
-            self.baseline_targets = tf.placeholder(tf.float32, shape=[None], name="reward_targets_nn_V")
+            self.baseline_targets = tf.placeholder(tf.float32, shape=[None], name="reward_targets")
             baseline_loss = 0.5 * tf.reduce_sum((self.baseline_prediction - self.baseline_targets) ** 2,
                                                 name="nn_baseline_loss")
+            self.baseline_update_op = tf.train.AdamOptimizer(self.learning_rate).minimize(baseline_loss)
             self.baseline_batch_trainer = GradientBatchTrainer(baseline_loss, self.learning_rate)
 
     def setup_graph(self):
@@ -203,7 +207,6 @@ class VanillaPolicyGradients:
         if model_path is None:
             model_path = tf.train.latest_checkpoint(os.path.join(self.experiments_path, "models"))
         self.saver.restore(self.tf_sess, model_path)
-
 
     def sample_trajectories(self, itr):
         """
