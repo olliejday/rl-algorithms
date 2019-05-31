@@ -66,7 +66,7 @@ def train_cartpole(exp_name="vpg-cartpole"):
 
 def train_inverted_pendulum(exp_name="vpg-inverted-pendulum"):
     env = gym.make("InvertedPendulum-v2")
-    train(env, exp_name, fc_small, debug=True, nn_baseline=False, nn_baseline_fn=fc_small, min_timesteps_per_batch=5000,
+    train(env, exp_name, fc_small, debug=True, nn_baseline=True, nn_baseline_fn=fc_small, min_timesteps_per_batch=5000,
           discrete=False, learning_rate=0.01, n_iter=100, gamma=0.9)
 
 

@@ -303,16 +303,19 @@ class VanillaPolicyGradients:
 
             ################################
 
-            baseline_n = np.zeros_like(q_n)
-            n = int(len(baseline_n) / self.gradient_batch_size)
-            if len(baseline_n) % self.gradient_batch_size != 0: n += 1
-            for i in range(n):
-                start = i * self.gradient_batch_size
-                end = (i+1) * self.gradient_batch_size
+            # baseline_n = np.zeros_like(q_n)
+            # n = int(len(baseline_n) / self.gradient_batch_size)
+            # if len(baseline_n) % self.gradient_batch_size != 0: n += 1
+            # for i in range(n):
+            #     start = i * self.gradient_batch_size
+            #     end = (i+1) * self.gradient_batch_size
+            #
+            #     # prediction from nn baseline
+            #     baseline_n[start:end] = self.tf_sess.run(self.baseline_prediction,
+            #                                              feed_dict={self.obs_ph: ob_no[start:end]})
 
-                # prediction from nn baseline
-                baseline_n[start:end] = self.tf_sess.run(self.baseline_prediction,
-                                                         feed_dict={self.obs_ph: ob_no[start:end]})
+            # prediction from nn baseline
+            baseline_n = self.tf_sess.run(self.baseline_prediction, feed_dict={self.obs_ph: ob_no})
 
             # normalise to 0 mean and 1 std
             baseline_n_norm = normalise(baseline_n)
@@ -361,20 +364,25 @@ class VanillaPolicyGradients:
 
             # normalise the raw Q-values as per hint above
             target_n = normalise(q_n)
-            self.baseline_batch_trainer.train(feed_dict={self.obs_ph: ob_no,
-                                                         self.baseline_targets: target_n},
-                                              batch_size=self.gradient_batch_size,
-                                              sess=self.tf_sess)
+            self.tf_sess.run(self.baseline_update_op, feed_dict={self.obs_ph: ob_no,
+                                                         self.baseline_targets: target_n})
+            # self.baseline_batch_trainer.train(feed_dict={self.obs_ph: ob_no,
+            #                                              self.baseline_targets: target_n},
+            #                                   batch_size=self.gradient_batch_size,
+            #                                   sess=self.tf_sess)
         # compute entropy before update
         approx_entropy = self.tf_sess.run(self.approx_entropy,
                                           feed_dict={self.obs_ph: ob_no[:self.gradient_batch_size],
                                                      self.acs_ph: ac_na[:self.gradient_batch_size]})
         # Performing the Policy Update
-        self.policy_batch_trainer.train(feed_dict={self.obs_ph: ob_no,
+        self.tf_sess.run(self.update_op, feed_dict={self.obs_ph: ob_no,
                                                    self.acs_ph: ac_na,
-                                                   self.adv_ph: adv_n},
-                                        batch_size=self.gradient_batch_size,
-                                        sess=self.tf_sess)
+                                                   self.adv_ph: adv_n})
+        # self.policy_batch_trainer.train(feed_dict={self.obs_ph: ob_no,
+        #                                            self.acs_ph: ac_na,
+        #                                            self.adv_ph: adv_n},
+        #                                 batch_size=self.gradient_batch_size,
+        #                                 sess=self.tf_sess)
         approx_kl = self.tf_sess.run(self.approx_kl,
                                      feed_dict={self.obs_ph: ob_no[:self.gradient_batch_size],
                                                 self.acs_ph: ac_na[:self.gradient_batch_size],
