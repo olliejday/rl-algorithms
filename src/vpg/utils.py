@@ -243,4 +243,4 @@ class GradientBatchTrainer:
 
 def gaussian_likelihood(x, mu, log_std):
     std = tf.exp(log_std) + 1e-8
-    return - 0.5 * tf.reduce_sum(((mu - x) / std) ** 2 + 2 * log_std + np.log(2 * np.pi), axis=1)
+    return - 0.5 * tf.reduce_sum(((mu - x) / std) ** 2 , axis=1)

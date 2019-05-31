@@ -7,6 +7,7 @@ import numpy as np
 import random
 import time
 import os
+from keras.layers import Layer
 
 from src.common.utils import plot_training_curves, set_global_seeds
 

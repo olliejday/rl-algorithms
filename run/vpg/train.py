@@ -1,6 +1,7 @@
 import gym
 import os
 import argparse
+import numpy as np
 
 from src.vpg.vpg import VanillaPolicyGradients
 from src.vpg.utils import VPGTrainingLogger
@@ -38,19 +39,18 @@ def train(env, exp_name, model_fn, debug=False, seed=123, n_iter=100, save_every
     vpg.setup_graph()
 
     for itr in range(n_iter):
-        buffer = vpg.sample_trajectories(itr)
+        paths, _ = vpg.sample_trajectories(itr)
 
         # get one long sequence of observations and actions
         # we keep rewards in trajectories until we discount
-        obs = buffer.get_obs()
-        acs = buffer.get_acs()
-        logprobs = buffer.get_logprobs()
-        rwds = buffer.rwds
+        ob_no = np.concatenate([path["observation"] for path in paths])
+        ac_na = np.concatenate([path["action"] for path in paths])
+        re_n = [path["reward"] for path in paths]
 
-        q_n, adv_n = vpg.estimate_return(obs, rwds)
-        entropy, kl = vpg.update_parameters(obs, acs, q_n, adv_n, logprobs)
+        q_n, adv_n = vpg.estimate_return(ob_no, re_n)
+        vpg.update_parameters(ob_no, ac_na, q_n, adv_n)
 
-        training_logger.log(itr, [sum(r) for r in rwds], [len(r) for r in rwds], entropy, kl)
+        training_logger.log(itr, [sum(r) for r in re_n], [len(r) for r in re_n], np.zeros(1), np.zeros(1))
 
         if itr % save_every == 0:
             vpg.save_model(training_logger.timesteps)
