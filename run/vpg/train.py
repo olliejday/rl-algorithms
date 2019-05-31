@@ -1,9 +1,10 @@
 import gym
 import os
+import numpy as np
 
 from src.vpg.vpg import VanillaPolicyGradients
 from src.vpg.utils import VPGTrainingLogger
-from src.vpg.models import fc_small
+from src.vpg.models import fc_small, fc_medium
 from src.common.utils import set_global_seeds
 
 
@@ -51,36 +52,28 @@ def train(env_name, exp_name, model_fn, debug=False, seed=1, n_iter=100, save_ev
 
         training_logger.log(itr, [sum(r) for r in rwds], [len(r) for r in rwds], entropy, kl)
 
-        if itr % save_every == 0:
-            vpg.save_model(training_logger.timesteps)
+        # if itr % save_every == 0:
+        #     vpg.save_model(training_logger.timesteps)
 
     env.close()
 
 
-def train_cartpole(exp_name="vpg-debug"):
-    env_name = "CartPole-v0"
-    model_fn = fc_small
-
-    train(env_name, exp_name, model_fn, debug=True, nn_baseline=True, nn_baseline_fn=fc_small,
-          min_timesteps_per_batch=5000)
+def train_cartpole(exp_name="vpg-cartpole"):
+    train("CartPole-v0", exp_name, fc_small, debug=True, nn_baseline=True, nn_baseline_fn=fc_small, min_timesteps_per_batch=5000,
+          learning_rate=5e-3)
 
 
-def train_inverted_pendulum(exp_name="vpg-debug"):
-    env_name = "InvertedPendulum-v2"
-    model_fn = fc_small
+def train_inverted_pendulum(exp_name="vpg-ip"):
+    train("InvertedPendulum-v2", exp_name, fc_medium, debug=True, nn_baseline=True, nn_baseline_fn=fc_small,
+          discrete=False, min_timesteps_per_batch=2500, learning_rate=0.01)
 
-    train(env_name, exp_name, model_fn, debug=True, nn_baseline=True, nn_baseline_fn=fc_small, discrete=False)
+
+def train_lander(exp_name="vpg-lander"):
+    train("LunarLanderContinuous-v2", exp_name, fc_small, debug=True, nn_baseline=True, nn_baseline_fn=fc_small,
+          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.05)
 
 
 if __name__ == "__main__":
-    """
-    Example usage:
-    
-    env_name = "CartPole-v0"
-    exp_name = "vpg-debug"
-    model_fn = fc_small
-
-    train(env_name, exp_name, model_fn)
-    """
     train_cartpole()
     # train_inverted_pendulum()
+    # train_lander()

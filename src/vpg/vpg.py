@@ -107,13 +107,13 @@ class VanillaPolicyGradients:
         return to_string
 
     def setup_placeholders(self):
-        self.ob_placeholder = Input(shape=self.ob_dim, name="ob", dtype=tf.float32)
+        self.obs_ph = Input(shape=self.ob_dim, name="ob", dtype=tf.float32)
         if self.discrete:
-            self.ac_placeholder = tf.placeholder(shape=[None], name="ac", dtype=tf.int32)
+            self.acs_ph = tf.placeholder(shape=[None], name="ac", dtype=tf.int32)
         else:
-            self.ac_placeholder = tf.placeholder(shape=[None, self.ac_dim], name="ac", dtype=tf.float32)
-        self.adv_placeholder = tf.placeholder(shape=[None], name="adv", dtype=tf.float32)
-        self.old_logprob_placeholder = tf.placeholder(shape=[None], name="old_logprob", dtype=tf.float32)
+            self.acs_ph = tf.placeholder(shape=[None, self.ac_dim], name="ac", dtype=tf.float32)
+        self.adv_ph = tf.placeholder(shape=[None], name="adv", dtype=tf.float32)
+        self.old_logprob_ph = tf.placeholder(shape=[None], name="old_logprob", dtype=tf.float32)
 
     def setup_inference(self, model_outputs):
         """
@@ -129,7 +129,7 @@ class VanillaPolicyGradients:
                                      name="sampled_ac")(model_outputs)
             # we apply a softmax to get the log probabilities in discrete case
             log_prob = Lambda(lambda x: tf.nn.log_softmax(x), name="log_prob")(model_outputs)
-            self.logprob_ac = GatherLayer(log_prob, "logprob_ac")(self.ac_placeholder)
+            self.logprob_ac = GatherLayer(log_prob, "logprob_ac")(self.acs_ph)
             self.logprob_sampled = GatherLayer(log_prob, "logprob_sampled")(self.sampled_ac)
         else:
             sy_mean = model_outputs
@@ -138,9 +138,9 @@ class VanillaPolicyGradients:
             self.sampled_ac = Lambda(lambda x: x + sy_logstd * sample_z, name="sampled_ac")(sy_mean)
             # formula for log of a gaussian
             self.logprob_ac = Lambda(lambda x: self.gaussian_likelihood(x, sy_mean, sy_logstd),
-                                     name="logprob_ac")(self.ac_placeholder)
+                                     name="logprob_ac")(self.acs_ph)
             self.logprob_sampled = Lambda(lambda x: self.gaussian_likelihood(x, sy_mean, sy_logstd),
-                                          name="logprob_sampled")(self.ac_placeholder)
+                                          name="logprob_sampled")(self.acs_ph)
 
     def gaussian_likelihood(self, x, mu, log_std):
         std = tf.exp(log_std) + 1e-8
@@ -151,11 +151,11 @@ class VanillaPolicyGradients:
         Sets up policy gradient loss operations for the model.
         """
         # approximate some useful metrics to monitor during training
-        self.approx_kl = tf.reduce_mean(self.old_logprob_placeholder - self.logprob_ac)
+        self.approx_kl = tf.reduce_mean(self.old_logprob_ph - self.logprob_ac)
         self.approx_entropy = tf.reduce_mean(-self.logprob_ac)
 
         # Loss Function and Training Operation
-        loss = - tf.reduce_mean(self.logprob_ac * self.adv_placeholder, name="loss")
+        loss = - tf.reduce_mean(self.logprob_ac * self.adv_ph, name="loss")
 
         self.policy_batch_trainer = GradientBatchTrainer(loss, self.learning_rate)
 
@@ -165,9 +165,9 @@ class VanillaPolicyGradients:
         # neural network baseline. These will be used to fit the neural network baseline.
         if self.nn_baseline:
             assert self.nn_baseline_fn is not None, "nn_baseline option requires a nn_baseline_fn"
-            model_outputs = self.nn_baseline_fn(self.ob_placeholder, 1)
+            model_outputs = self.nn_baseline_fn(self.obs_ph, 1)
             self.baseline_prediction = Lambda(lambda x: tf.squeeze(x))(model_outputs)
-            self.baseline_model = Model(inputs=self.ob_placeholder, outputs=self.baseline_prediction)
+            self.baseline_model = Model(inputs=self.obs_ph, outputs=self.baseline_prediction)
             # size None because we have vector of length batch size
             self.baseline_targets = tf.placeholder(tf.float32, shape=[None], name="reward_targets_nn_V")
             baseline_loss = 0.5 * tf.reduce_sum((self.baseline_prediction - self.baseline_targets) ** 2,
@@ -178,7 +178,7 @@ class VanillaPolicyGradients:
         """
         Defines a Keras model
         """
-        self.policy_model = Model(inputs=self.ob_placeholder, outputs=[self.sampled_ac, self.logprob_sampled])
+        self.policy_model = Model(inputs=self.obs_ph, outputs=[self.sampled_ac, self.logprob_sampled])
 
     def setup_graph(self):
         """
@@ -187,7 +187,7 @@ class VanillaPolicyGradients:
         """
         self.setup_placeholders()
 
-        model_outputs = self.model_fn(self.ob_placeholder, self.ac_dim)
+        model_outputs = self.model_fn(self.obs_ph, self.ac_dim)
         self.setup_inference(model_outputs)
         self.setup_loss()
 
@@ -298,23 +298,27 @@ class VanillaPolicyGradients:
             # Hint #bl1: rescale the output from the nn_baseline to match the statistics
             # (mean and std) of the current batch of Q-values. (Goes with Hint
             # #bl2 in Agent.update_parameters.
-            adv_n = np.zeros_like(q_n)
-            n = int(len(adv_n) / self.gradient_batch_size)
-            if len(adv_n) % self.gradient_batch_size != 0: n += 1
+
+            ################################
+
+            baseline_n = np.zeros_like(q_n)
+            n = int(len(baseline_n) / self.gradient_batch_size)
+            if len(baseline_n) % self.gradient_batch_size != 0: n += 1
             for i in range(n):
                 start = i * self.gradient_batch_size
-                end = (i + 1) * self.gradient_batch_size
+                end = (i+1) * self.gradient_batch_size
 
                 # prediction from nn baseline
-                baseline_n = self.baseline_model.predict(ob_no[start:end])
-                # normalise to 0 mean and 1 std
-                baseline_n_norm = normalise(baseline_n)
-                # set to q mean and std
-                q_n_mean = np.mean(q_n)
-                q_n_std = np.std(q_n)
-                b_n_norm = baseline_n_norm * q_n_std + q_n_mean
+                baseline_n[start:end] = self.tf_sess.run(self.baseline_prediction, feed_dict={self.obs_ph: ob_no[start:end]})
 
-                adv_n[start:end] = b_n_norm
+            # normalise to 0 mean and 1 std
+            baseline_n_norm = normalise(baseline_n)
+            # set to q mean and std
+            q_n_mean = np.mean(q_n)
+            q_n_std = np.std(q_n)
+            b_n_norm = baseline_n_norm * q_n_std + q_n_mean
+
+            adv_n = q_n - b_n_norm
 
         else:
             adv_n = q_n.copy()
@@ -337,29 +341,41 @@ class VanillaPolicyGradients:
         """
         Update function to call to train policy and (possibly) neural network baseline.
         """
+        #====================================================================================#
+        #                           ----------PROBLEM 6----------
         # Optimizing Neural Network Baseline
+        #====================================================================================#
         if self.nn_baseline:
             # If a neural network baseline is used, set up the targets and the inputs for the
             # baseline.
+            #
+            # Fit it to the current batch in order to use for the next iteration. Use the
+            # baseline_update_op you defined earlier.
+            #
+            # Hint #bl2: Instead of trying to target raw Q-values directly, rescale the
+            # targets to have mean zero and std=1. (Goes with Hint #bl1 in
+            # Agent.compute_advantage.)
+
+            # normalise the raw Q-values as per hint above
             target_n = normalise(q_n)
-            self.baseline_batch_trainer.train(feed_dict={self.ob_placeholder: ob_no,
+            self.baseline_batch_trainer.train(feed_dict={self.obs_ph: ob_no,
                                                          self.baseline_targets: target_n},
                                               batch_size=self.gradient_batch_size,
                                               sess=self.tf_sess)
         # compute entropy before update
         approx_entropy = self.tf_sess.run(self.approx_entropy,
-                                          feed_dict={self.ob_placeholder: ob_no[:self.gradient_batch_size],
-                                                     self.ac_placeholder: ac_na[:self.gradient_batch_size]})
+                                          feed_dict={self.obs_ph: ob_no[:self.gradient_batch_size],
+                                                     self.acs_ph: ac_na[:self.gradient_batch_size]})
         # Performing the Policy Update
-        self.policy_batch_trainer.train(feed_dict={self.ob_placeholder: ob_no,
-                                                   self.ac_placeholder: ac_na,
-                                                   self.adv_placeholder: adv_n},
+        self.policy_batch_trainer.train(feed_dict={self.obs_ph: ob_no,
+                                                   self.acs_ph: ac_na,
+                                                   self.adv_ph: adv_n},
                                         batch_size=self.gradient_batch_size,
                                         sess=self.tf_sess)
         approx_kl = self.tf_sess.run(self.approx_kl,
-                                     feed_dict={self.ob_placeholder: ob_no[:self.gradient_batch_size],
-                                                self.ac_placeholder: ac_na[:self.gradient_batch_size],
-                                                self.old_logprob_placeholder: logprob_n[:self.gradient_batch_size]})
+                                     feed_dict={self.obs_ph: ob_no[:self.gradient_batch_size],
+                                                self.acs_ph: ac_na[:self.gradient_batch_size],
+                                                self.old_logprob_ph: logprob_n[:self.gradient_batch_size]})
         return approx_entropy, approx_kl
 
 
