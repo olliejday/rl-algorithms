@@ -3,8 +3,6 @@ import numpy as np
 import time
 import os
 import keras.backend as keras_backend
-from keras import Model, Input
-from keras.models import load_model
 
 from src.vpg.utils import VPGBuffer, normalise, gaussian_likelihood
 
@@ -18,13 +16,13 @@ class VanillaPolicyGradients:
                  learning_rate=5e-3,
                  nn_baseline=False,
                  nn_baseline_fn=None,
-                 render_every=10,
+                 render_every=20,
                  max_path_length=1000,
                  min_timesteps_per_batch=10000,
                  reward_to_go=True,
                  gamma=0.99,
                  normalise_advantages=True,
-                 gradient_batch_size=100
+                 gradient_batch_size=1000
                  ):
 
         """
@@ -104,13 +102,13 @@ class VanillaPolicyGradients:
         return to_string
 
     def setup_placeholders(self):
-        self.sy_ob_no = tf.placeholder(shape=[None] + [dim for dim in self.ob_dim], name="ob", dtype=tf.float32)
+        self.obs_ph = tf.placeholder(shape=[None] + [dim for dim in self.ob_dim], name="ob", dtype=tf.float32)
         if self.discrete:
-            self.sy_ac_na = tf.placeholder(shape=[None], name="ac", dtype=tf.int32)
+            self.acs_ph = tf.placeholder(shape=[None], name="ac", dtype=tf.int32)
         else:
-            self.sy_ac_na = tf.placeholder(shape=[None, self.ac_dim], name="ac", dtype=tf.float32)
+            self.acs_ph = tf.placeholder(shape=[None, self.ac_dim], name="ac", dtype=tf.float32)
 
-        self.sy_adv_n = tf.placeholder(shape=[None], name="adv", dtype=tf.float32)
+        self.adv_ph = tf.placeholder(shape=[None], name="adv", dtype=tf.float32)
 
     def setup_inference(self, model_outputs):
         """
@@ -121,37 +119,33 @@ class VanillaPolicyGradients:
         """
         if self.discrete:
             # here model outputs are the logits
-            sy_logits_na = model_outputs
-            dist = tf.distributions.Categorical(logits=sy_logits_na, name="discrete_categorical_dist")
-            self.sy_sampled_ac = dist.sample(name="discrete_categorical_sample")
+            self.sampled_ac = tf.squeeze(tf.random.categorical(model_outputs, 1, name="sampled_ac"), axis=1)
             # we apply a softmax to get the log probabilities in discrete case
-            self.sy_logprob_n = - tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.sy_ac_na, logits=sy_logits_na,
-                                                                            name="discrete_action_log_prob")
+            self.logprob_ac = - tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.acs_ph, logits=model_outputs,
+                                                                               name="logprob_ac")
+            self.logprob_sampled = - tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.sampled_ac, logits=model_outputs,
+                                                                               name="logprob_sampled")
         else:
             sy_mean = model_outputs
             sy_logstd = tf.get_variable(name="log_std", shape=[self.ac_dim])
             sample_z = tf.random.normal(shape=tf.shape(sy_mean), name="continuous_sample_z")
-            self.sy_sampled_ac = sy_mean + tf.exp(sy_logstd) * sample_z
-            # formula for log of a gaussian
-            sy_std = tf.exp(sy_logstd)
-            self.sy_logprob_n = - 0.5 * tf.reduce_sum(((sy_mean - self.sy_ac_na) / sy_std) ** 2, axis=1)
+            self.sampled_ac = sy_mean + tf.exp(sy_logstd) * sample_z
+            self.logprob_ac = gaussian_likelihood(self.acs_ph, sy_mean, sy_logstd)
+            self.logprob_sampled = gaussian_likelihood(self.sampled_ac, sy_mean, sy_logstd)
 
     def setup_loss(self):
         """
         Sets up policy gradient loss operations for the model.
         """
         # Loss Function and Training Operation
-        negative_weighted_likelihoods = tf.multiply(self.sy_logprob_n, self.sy_adv_n,
-                                                    name="negative_weighted_likelihoods")
-        loss = - tf.reduce_mean(negative_weighted_likelihoods, name="loss")
-        self.loss_op = loss
+        loss = - tf.reduce_mean(self.logprob_ac * self.adv_ph, name="loss")
         self.update_op = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
 
         if self.nn_baseline:
-            self.baseline_prediction = tf.squeeze(self.nn_baseline_fn(self.sy_ob_no, 1))
+            self.baseline_prediction = tf.squeeze(self.nn_baseline_fn(self.obs_ph, 1))
             # size None because we have vector of length batch size
-            self.sy_target_n = tf.placeholder(tf.float32, shape=[None], name="reward_targets_nn_V")
-            baseline_loss = 0.5 * tf.reduce_sum((self.baseline_prediction - self.sy_target_n) ** 2,
+            self.baseline_targets_ph = tf.placeholder(tf.float32, shape=[None], name="reward_targets_nn_V")
+            baseline_loss = 0.5 * tf.reduce_sum((self.baseline_prediction - self.baseline_targets_ph) ** 2,
                                                 name="nn_baseline_loss")
             self.baseline_update_op = tf.train.AdamOptimizer(self.learning_rate).minimize(baseline_loss)
 
@@ -162,7 +156,7 @@ class VanillaPolicyGradients:
         """
         self.setup_placeholders()
 
-        model_outputs = self.model_fn(self.sy_ob_no, self.ac_dim)
+        model_outputs = self.model_fn(self.obs_ph, self.ac_dim)
         self.setup_inference(model_outputs)
         self.setup_loss()
         self.init_tf()
@@ -183,42 +177,35 @@ class VanillaPolicyGradients:
 
     def sample_trajectories(self, itr):
         # Collect paths until we have enough timesteps
-        timesteps_this_batch = 0
-        paths = []
+        buffer = VPGBuffer()
         while True:
-            animate_this_episode = (len(paths) == 0 and itr % self.render_every == 0)
-            print (itr, animate_this_episode)
-            path = self.sample_trajectory(self.env, animate_this_episode)
-            paths.append(path)
-            timesteps_this_batch += len(path['reward'])
-            if timesteps_this_batch > self.min_timesteps_per_batch:
+            animate_this_episode = (buffer.length == 0 and itr % self.render_every == 0)
+            self.sample_trajectory(buffer, animate_this_episode)
+            if buffer.length > self.min_timesteps_per_batch:
                 break
-        return paths, timesteps_this_batch
+            buffer.next()
+        return buffer
 
-    def sample_trajectory(self, env, animate_this_episode):
-        ob = env.reset()
-        obs, acs, rewards = [], [], []
+    def sample_trajectory(self, buffer, render):
+        ob_ = self.env.reset()
         steps = 0
         while True:
-            if animate_this_episode:
-                env.render()
+            ob = ob_
+            if render:
+                self.env.render()
                 time.sleep(0.1)
-            obs.append(ob)
             # ====================================================================================#
             #                           ----------PROBLEM 3----------
             # ====================================================================================#
-            ac = self.sess.run(self.sy_sampled_ac, feed_dict={self.sy_ob_no: np.array([ob])})
+            ac, logprob = self.sess.run([self.sampled_ac, self.logprob_sampled],
+                                        feed_dict={self.obs_ph: np.array([ob])})
             ac = ac[0]
-            acs.append(ac)
-            ob, rew, done, _ = env.step(ac)
-            rewards.append(rew)
+            logprob = logprob[0]
+            ob_, rew, done, _ = self.env.step(ac)
+            buffer.add(ob, ac, rew, logprob)
             steps += 1
             if done or steps > self.max_path_length:
                 break
-        path = {"observation": np.array(obs, dtype=np.float32),
-                "reward": np.array(rewards, dtype=np.float32),
-                "action": np.array(acs, dtype=np.float32)}
-        return path
 
     def sum_of_rewards(self, re_n):
         """
@@ -276,7 +263,7 @@ class VanillaPolicyGradients:
             # #bl2 in Agent.update_parameters.
 
             # prediction from nn baseline
-            b_n = self.sess.run(self.baseline_prediction, feed_dict={self.sy_ob_no: ob_no})
+            b_n = self.sess.run(self.baseline_prediction, feed_dict={self.obs_ph: ob_no})
             # normalise to 0 mean and 1 std
             b_n_norm = normalise(b_n)
             # set to q mean and std
@@ -308,11 +295,11 @@ class VanillaPolicyGradients:
         if self.nn_baseline:
             target_n = normalise(q_n)
 
-            self.sess.run(self.baseline_update_op, feed_dict={self.sy_ob_no: ob_no, self.sy_target_n: target_n})
+            self.sess.run(self.baseline_update_op, feed_dict={self.obs_ph: ob_no, self.baseline_targets_ph: target_n})
 
-        self.sess.run(self.update_op, feed_dict={self.sy_ob_no: ob_no,
-                                                 self.sy_ac_na: ac_na,
-                                                 self.sy_adv_n: adv_n})
+        self.sess.run(self.update_op, feed_dict={self.obs_ph: ob_no,
+                                                 self.acs_ph: ac_na,
+                                                 self.adv_ph: adv_n})
 
 
 def run_model(env, fpath, n_episodes=3, sleep=0.01):
@@ -323,7 +310,8 @@ def run_model(env, fpath, n_episodes=3, sleep=0.01):
     :param n_episodes: number of episodes to run
     :param sleep: time to sleep between steps
     """
-    policy_model = load_model(fpath)
+    # policy_model = load_model(fpath)
+    policy_model = None
 
     for i in range(n_episodes):
 
