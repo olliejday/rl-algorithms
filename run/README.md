@@ -7,34 +7,40 @@ includes experiments on environments to show performance.
 
 ## Usage
 
+For each algorithm we have a template for training, running and plotting interface.
+
 ## Training
 
-Train model by setting up as seen in examples in train.py
-eg. opt spec etc. as quite complex options to tweak learning rate and exploration
-schedules.
+Train model by setting up a training function as seen in examples in `run/<algorithm>/train.py`. You need to 
+provide hyperparamers, environment name etc.
 
-## Running and plotting
+Then add this custom training function, `train_fn` to the options dictionary in `train.py`. You must 
+give it a name `<experiment>`.
+
+```options['<experiment>'] = <train_fn>```  
+
+Then to train this custom training setup, call
+
+```python3 -m run.<algorithm>.train <experiment>```
+
+eg. ```python3 -m run.dqn.train lander```
+
+## Running
 
 After training a model, running a saved trained model can be done as:
 
-```python3 -m run.<algorithm>.run <experiment_name> <environment_name>```
+```python3 -m run.<algorithm>.run <experiment>```
 
-Where :
+Where `<experiment>` is the name of the experiment created above.
 
-`<algorithm>` is the algorithm eg. `dqn` or `vpg`<br/>
-`<experiment_name>` is the name of the experiment (ie. the top directory storing models) eg. `dqn_lander`<br/>
-`<environment_name>` is the name of the environment to run in eg. `LunarLander-v2`<br/>
+For custom trained models, you will have to add a running function, `run_fn`, similarly to custom training functions 
+above. See the examples for details, most hyperparameters should be copied from the training function.
 
+eg. ```python3 -m run.dqn.run lander```
 
-Run 
+## Plotting
 
-```python3 -m run.<algorithm>.run -h```
-
-for more information about options and arguments.
-
-<br/>
-
-Similarly plotting the training curves from training logs can be done:
+Plotting the training curves from training logs can be done:
 
 ```python3 -m run.<algorithm>.plot <experiment_name>```
 
@@ -49,3 +55,7 @@ Run
 ```python3 -m run.<algorithm>.plot -h```
 
 for more information about options and arguments.
+
+For example:
+
+```python3 -m run.dqn.plot dqn-lander```

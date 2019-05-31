@@ -1,6 +1,5 @@
 #TODO:
 
-* Add clear example usage of train run and plot commands.
 * Factor out snake gym into a branch (make sure readmes etc up to date with main branch), link to and from snake repo
 * See runs in homeworks for minimum to ship with example runs of, also see reports for things to mention.
 * Add links to blog (and links from blog to here)
@@ -8,9 +7,7 @@
 
 PG
 
-* note changed back to TF rather than keras in the main of the code
-* need to update README as running models is now done by functions not cmd args
-* finalise cleanest as can be
+* try get a pong model in, might have to stack or diff the obs
 
 DQN
 

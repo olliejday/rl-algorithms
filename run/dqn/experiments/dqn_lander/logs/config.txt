@@ -1,5 +1,0 @@
-Env_name: LunarLander-v2
-Model_fn: DQNFCModelKeras
-Seed: 123
-{'batch_size': 32, 'learning_starts': 1000, 'delta': 1.0, 'log_every_n_steps': 10000, 'replay_buffer_size': 50000, 'double_q': True, 'frame_history_len': 1, 'learning_freq': 1, 'exploration': <utils.PiecewiseSchedule object at 0x7f9f4f98d710>, 'save_every': 100000.0, 'gamma': 1.0, 'target_update_freq': 3000, 'grad_norm_clipping': 10, 'integer_observations': False}
-batch_size: {}, gamma: {}, learning_starts: {}, learning_freq: {}, frame_history_len: {}, target_update_freq: {}, grad_norm_clipping: {}, 

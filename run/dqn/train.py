@@ -1,6 +1,7 @@
 import gym
 import os
 import tensorflow as tf
+import argparse
 
 from src.dqn.models import DQNFCModelKeras, DQNCNNModelKerasSmall
 from src.dqn.dqn import DQN
@@ -101,7 +102,7 @@ def train_lander():
           integer_observations=False)
 
 
-def train_atari(env_name):
+def train_pong():
     num_timesteps = 1e8
     # This is just a rough estimate
     num_iterations = float(num_timesteps) / 4.0
@@ -128,8 +129,8 @@ def train_atari(env_name):
         ], outside_value=0.01
     )
 
-    train("dqn_atari_{}".format(env_name),
-          env_name,
+    train("dqn-pong",
+          "PongNoFrameskip-v4",
           DQNCNNModelKerasSmall,
           optimizer,
           num_timesteps=num_timesteps,
@@ -150,5 +151,13 @@ def train_atari(env_name):
 
 
 if __name__ == "__main__":
-    # train_lander()
-    train_atari("PongNoFrameskip-v4")
+    options = {}
+    options['lander'] = train_lander
+    options['pong'] = train_pong
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("experiment", choices=options.keys())
+
+    args = parser.parse_args()
+
+    options[args.experiment]()

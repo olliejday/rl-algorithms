@@ -40,15 +40,21 @@ def run(env_name,
 
 
 def run_lander(exp_name="vpg-lander"):
-    run("LunarLanderContinuous-v2", exp_name, fc_small, debug=True, nn_baseline=True, nn_baseline_fn=fc_small,
-          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.05)
+    run("LunarLanderContinuous-v2", exp_name, fc_small, debug=True, discrete=False)
 
 
 def run_cartpole(exp_name="vpg-cartpole"):
-    run("CartPole-v0", exp_name, fc_small, debug=True, nn_baseline=True, nn_baseline_fn=fc_small, min_timesteps_per_batch=5000,
-          learning_rate=5e-3)
+    run("CartPole-v0", exp_name, fc_small, debug=True)
 
 
 if __name__ == "__main__":
-    # run_lander()
-    run_cartpole()
+    options = {}
+    options['lander'] = run_lander
+    options['cartpole'] = run_cartpole
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("experiment", choices=options.keys())
+
+    args = parser.parse_args()
+
+    options[args.experiment]()

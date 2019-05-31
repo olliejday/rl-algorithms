@@ -47,30 +47,22 @@ def run(exp_name,
     env.close()
 
 
+def run_lander(exp_name="dqn-lander"):
+    run(exp_name, "LunarLander-v2", 1, False)
+
+
+def run_pong(exp_name="dqn-pong"):
+    run(exp_name, "PongNoFrameskip-v4", 4, True)
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Plot training logs.")
-    experiment_args = parser.add_argument_group("Experiment Arguments", "Parameters for running experiments.")
-    experiment_args.add_argument('experiment_name', help="Name of experiments to run model from. Must exist as a directory with "
-                                                "experiment_name/models/model-xxxx.txt")
-    experiment_args.add_argument('environment_name', help="Name of OpenAI Gym environment to run in.")
-    experiment_args.add_argument('--model_number', '-m', help="Model number xxxx Must exist as a directory with "
-                                             "experiment_name/models/model-xxxx.txt. If None then latest is used")
-    experiment_args.add_argument('--seed', '-s', help="Seed to set for system.", default=123)
-    experiment_args.add_argument('--debug', '-d', help="Whether to use debugging for reproducibility but reduced performance.",
-                        action="store_true")
-    model_args = parser.add_argument_group("Model Arguments", "Parameters for model to run.")
-    # settings for DQN model
-    model_args.add_argument('--integer_observations', '-int', help="If True, expects integer observations.", default=True)
-    model_args.add_argument('--frame_history_len', '-f', help="Number of frames to stack observations into sequence.",
-                        default=4)
+    options = {}
+    options['lander'] = run_lander
+    options['pong'] = run_pong
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("experiment", choices=options.keys())
 
     args = parser.parse_args()
 
-    run(args.experiment_name,
-        args.environment_name,
-        args.frame_history_len,
-        args.integer_observations,
-        model_number=args.model_number,
-        debug=args.debug,
-        seed=args.seed,
-        )
+    options[args.experiment]()

@@ -3,7 +3,6 @@ import numpy as np
 import time
 import os
 import keras.backend as keras_backend
-from keras import Input
 
 from src.vpg.utils import VPGBuffer, normalise, GradientBatchTrainer, gaussian_likelihood
 
@@ -109,7 +108,7 @@ class VanillaPolicyGradients:
         return to_string
 
     def setup_placeholders(self):
-        self.obs_ph = Input(shape=self.ob_dim, name="ob", dtype="float32")
+        self.obs_ph = tf.placeholder(shape=[None] + [dim for dim in self.ob_dim], name="ob", dtype="float32")
         if self.discrete:
             self.acs_ph = tf.placeholder(shape=[None], name="ac", dtype=tf.int32)
         else:
@@ -121,11 +120,9 @@ class VanillaPolicyGradients:
         """
         Constructs the symbolic operation for the policy network outputs,
             which are the parameters of the policy distribution p(a|s)
-
-        Wrapped in Keras Lambdas to build a Keras model
         """
         if self.discrete:
-            # here model outputs are the logits
+            # here model outputs are the logits, so sample an action
             self.sampled_ac = tf.squeeze(
                 tf.random.categorical(model_outputs, 1, dtype=tf.int32, name="sampled_ac"), axis=1)
             # we apply a softmax to get the log probabilities in discrete case
@@ -133,10 +130,12 @@ class VanillaPolicyGradients:
             self.logprob_ac = tf.reduce_sum(tf.one_hot(self.acs_ph, depth=self.ac_dim) * log_prob, axis=1)
             self.logprob_sampled = tf.reduce_sum(tf.one_hot(self.sampled_ac, depth=self.ac_dim) * log_prob, axis=1)
         else:
+            # sample an action from a Normal(sy_mean, exp(sy_logstd) ** 2)
+            # we compute this by transforming a standard normal
             sy_mean = model_outputs
             sy_logstd = tf.get_variable(name="log_std", shape=[self.ac_dim])
             sample_z = tf.random.normal(shape=tf.shape(sy_mean), name="continuous_sample_z")
-            self.sampled_ac = sy_mean + sy_logstd * sample_z
+            self.sampled_ac = sy_mean + tf.exp(sy_logstd) * sample_z
             # formula for log of a gaussian
             self.logprob_ac = gaussian_likelihood(self.acs_ph, sy_mean, sy_logstd)
             self.logprob_sampled = gaussian_likelihood(self.sampled_ac, sy_mean, sy_logstd)
@@ -228,7 +227,7 @@ class VanillaPolicyGradients:
         :param render: flag whether to render this episode.
         :return:
         """
-        ob_, rew = self.env.reset(), 0
+        ob_ = self.env.reset()
         steps = 0
         while True:
             ob = ob_
@@ -395,7 +394,6 @@ def run_model(env, model_fn, experiments_path, model_path=None, n_episodes=3, **
                                  **kwargs)
     vpg.setup_graph()
     vpg.load_model(model_path)
-
 
     for i in range(n_episodes):
         buffer = VPGBuffer()
