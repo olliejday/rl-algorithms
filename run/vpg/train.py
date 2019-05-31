@@ -8,7 +8,7 @@ from src.vpg.models import fc_small, fc_medium, cnn_small, cnn_medium
 from src.common.utils import set_global_seeds
 
 
-def train(env, exp_name, model_fn, debug=False, seed=1, n_iter=100, save_every=25, **kwargs):
+def train(env, exp_name, model_fn, debug=False, seed=123, n_iter=100, save_every=25, **kwargs):
     """
     General training setup.
     :param env: Environment to train on
@@ -33,7 +33,6 @@ def train(env, exp_name, model_fn, debug=False, seed=1, n_iter=100, save_every=2
 
     training_logger = VPGTrainingLogger(experiments_path, ["Model_fn: {}".format(model_fn.__name__),
                                                            "Seed: {}".format(seed),
-                                                           str(kwargs),
                                                            str(vpg)])
 
     vpg.setup_graph()
@@ -73,14 +72,15 @@ def train_lander(exp_name="vpg-lander"):
 
 def train_pong(exp_name="vpg-pong"):
     env = gym.make("Pong-v0")
-    train(env, exp_name, cnn_small, debug=True, nn_baseline=True, nn_baseline_fn=cnn_small,
-          discrete=False, min_timesteps_per_batch=10000, learning_rate=0.005)
+    train(env, exp_name, cnn_small, nn_baseline=True, nn_baseline_fn=cnn_small,
+          discrete=True, min_timesteps_per_batch=10000, learning_rate=0.005)
 
 
 if __name__ == "__main__":
     options = {}
     options['lander'] = train_lander
     options['cartpole'] = train_cartpole
+    options['pong'] = train_pong
 
     parser = argparse.ArgumentParser()
     parser.add_argument("experiment", choices=options.keys())

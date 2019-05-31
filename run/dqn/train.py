@@ -6,32 +6,24 @@ import argparse
 from src.dqn.models import DQNFCModelKeras, DQNCNNModelKerasSmall
 from src.dqn.dqn import DQN
 from src.dqn.utils import DQNTrainingLogger, get_env, PiecewiseSchedule, ConstantSchedule, OptimizerSpec
+from src.dqn.atari_wrappers import wrap_deepmind
 
 
 def train(exp_name,
-          env_name,
+          env,
           model_class,
           optimizer_spec,
-          seed=123,
           num_timesteps=1e8,
-          debug=False,
           **kwargs):
     """
     General training setup.
-    :param env_name: Environment name to train on
+    :param env: Environment to train on
     :param exp_name: Experiment name to save logs to
     :param model_class: Model class to call to generate the DQN (see src.dqn.models)
     :param optimizer_spec: holds an optimzer and it's learning rate schedule (see src.dqn.utils)
-    :param seed: seed to setup system
     :param num_timesteps: number of timesteps to train for
-    :param debug: debug flag for seeding reproducibility vs performance
     :param kwargs: arguments to pass to DQN model __init__
     """
-
-    # setup env and wrap in monitor
-    env = gym.make(env_name)
-    env = get_env(env, seed, debug)
-
     # setup logging dirs
     root_dir = os.path.dirname(os.path.realpath(__file__))
     experiments_path = os.path.join(root_dir, "experiments", exp_name)
@@ -43,11 +35,9 @@ def train(exp_name,
               **kwargs)
     dqn.setup_graph()
 
-    training_logger = DQNTrainingLogger(experiments_path, ["Env_name: {}".format(env_name),
-                                                        "Model_fn: {}".format(model_class.__name__),
-                                                        "Seed: {}".format(seed),
-                                                           str(kwargs),
-                                                           str(dqn)])
+    training_logger = DQNTrainingLogger(experiments_path, ["Model_fn: {}".format(model_class.__name__),
+                                                            "Seed: {}".format(seed),
+                                                            str(dqn)])
 
     for _ in range(int(num_timesteps)):
         dqn.step_env()
@@ -63,7 +53,11 @@ def train(exp_name,
     env.close()
 
 
-def train_lander():
+def train_lander(seed=123, debug=True):
+    """
+    :param seed: seed to setup system
+    :param debug: debug flag for seeding reproducibility vs performance
+    """
     num_timesteps = 5e5
 
     exploration = PiecewiseSchedule(
@@ -80,8 +74,13 @@ def train_lander():
         lr_schedule=lr_schedule,
         kwargs={}
     )
-    train("dqn_lander1",
-          "LunarLander-v2",
+
+    # setup env and wrap in monitor
+    env = gym.make("LunarLander-v2")
+    env = get_env(env, seed, debug)
+
+    train("dqn_lander",
+          env,
           DQNFCModelKeras,
           optimizer,
           debug=True,
@@ -102,7 +101,11 @@ def train_lander():
           integer_observations=False)
 
 
-def train_pong():
+def train_pong(seed=123, debug=False):
+    """
+    :param seed: seed to setup system
+    :param debug: debug flag for seeding reproducibility vs performance
+    """
     num_timesteps = 1e8
     # This is just a rough estimate
     num_iterations = float(num_timesteps) / 4.0
@@ -129,8 +132,13 @@ def train_pong():
         ], outside_value=0.01
     )
 
+    # setup env and wrap in monitor
+    env = gym.make("PongNoFrameskip-v4")
+    env = get_env(env, seed, debug)
+    env = wrap_deepmind(env)
+
     train("dqn-pong",
-          "PongNoFrameskip-v4",
+          env,
           DQNCNNModelKerasSmall,
           optimizer,
           num_timesteps=num_timesteps,

@@ -3,7 +3,7 @@ import os
 import argparse
 
 from src.vpg.vpg import run_model
-from src.vpg.models import fc_small, fc_medium
+from src.vpg.models import fc_small, cnn_small
 from src.common.utils import set_global_seeds
 
 
@@ -40,17 +40,25 @@ def run(env_name,
 
 
 def run_lander(exp_name="vpg-lander"):
-    run("LunarLanderContinuous-v2", exp_name, fc_small, debug=True, discrete=False)
+    env = gym.make("CartPole-v0")
+    run(env, exp_name, fc_small, debug=True, discrete=False)
 
 
 def run_cartpole(exp_name="vpg-cartpole"):
-    run("CartPole-v0", exp_name, fc_small, debug=True)
+    env = gym.make("LunarLanderContinuous-v2")
+    run(env, exp_name, fc_small, debug=True)
 
+
+def run_pong(exp_name="vpg-pong"):
+    env = gym.make("Pong-v0")
+    run(env, exp_name, cnn_small, discrete=True)
 
 if __name__ == "__main__":
     options = {}
     options['lander'] = run_lander
     options['cartpole'] = run_cartpole
+    options['pong'] = run_pong
+
 
     parser = argparse.ArgumentParser()
     parser.add_argument("experiment", choices=options.keys())
