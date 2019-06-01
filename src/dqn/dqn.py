@@ -103,7 +103,7 @@ class DQN():
         if self.experiments_path != "":
             save_dir = os.path.join(self.experiments_path, "models")
             if not os.path.exists(save_dir):
-                print("\nMade model directory: {}\n".format(save_dir))
+                print("Made model directory: {}".format(save_dir))
                 os.makedirs(save_dir)
 
         # for rendering during training
@@ -317,7 +317,7 @@ class DQN():
         """
         Saves model if a saving timestep
         Returns None if not a logging step,
-        Returns timestep, episode rewards, episode lengths and exploration parameter on logging steps
+        Returns (timestep, episode rewards, episode lengths and exploration parameter) on logging steps
         """
         episode_rewards = get_wrapper_by_name(self.env, "Monitor").get_episode_rewards()
         episode_lengths = get_wrapper_by_name(self.env, "Monitor").get_episode_lengths()
@@ -347,6 +347,9 @@ def run_model(env, fpath, frame_history_len, integer_observations,
     Run a saved, trained model.
     :param env: environment to run in
     :param fpath: file path of model to run
+    :param frame_history_len: for replay buffer
+    :param integer_observations: for replay buffer
+    :param replay_buffer_size: for replay buffer
     :param n_episodes: number of episodes to run
     :param sleep: time to sleep between steps
     """

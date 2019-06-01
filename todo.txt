@@ -1,15 +1,10 @@
 #TODO:
 
-* Improve VPG
 * See runs in homeworks for minimum to ship with example runs of, also see reports for things to mention.
 * Update READMEs
 * Factor out snake gym into a branch (make sure readmes etc up to date with main branch), link to and from snake repo
 * Add links to blog (and links from blog to here)
 * delete this todo.txt!!
-
-PG
-
-* Had to go back on PG so build on it again - but test as go!
 
 DQN
 

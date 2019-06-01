@@ -25,12 +25,16 @@ class VPGBuffer:
     """
 
     def __init__(self):
-        self.length = 0
-        self.obs = [[]]
-        self.acs = [[]]
-        self.rwds = [[]]
-        self.logprobs = [[]]
-        self.ptr = 0
+        """
+        Starts uninitialised to -1s and empty lists.
+        Call next() to initialise before use.
+        """
+        self.length = -1
+        self.obs = []
+        self.acs = []
+        self.rwds = []
+        self.logprobs = []
+        self.ptr = -1
 
     def add(self, ob, ac, rwd, lgprb):
         """
@@ -50,7 +54,8 @@ class VPGBuffer:
 
     def next(self):
         """
-        End of a trajectory, setup for next trajectory
+        End of a trajectory, setup for next trajectory.
+        Also call to initialise.
         """
         self.obs.append([])
         self.acs.append([])
@@ -148,7 +153,7 @@ class GradientBatchTrainer:
     """
     Setup update op such that we can apply gradient in batches.
     Because we want to use large batch sizes, but this can be too big for GPU memory, so we
-    want to compute gradients in batches then average them to update.
+    want to compute gradients in batches then sum them to update.
     From: https://stackoverflow.com/questions/42156957/how-to-update-model-parameters-with-accumulated-gradients
     """
     def __init__(self, loss_op, learning_rate):
@@ -167,8 +172,6 @@ class GradientBatchTrainer:
                 trainable=False
             ) for tv in trainable_vars
         ]
-        # Create a variable for counting the number of accumulations
-        accumulation_counter = tf.Variable(0.0, trainable=False)
         # Compute gradients; grad_pairs contains (gradient, variable) pairs
         grad_pairs = optimizer.compute_gradients(loss_op, trainable_vars)
         # Create operations which add a variable's gradient to its accumulator.
@@ -178,13 +181,11 @@ class GradientBatchTrainer:
             ) for (accumulator, (grad, var)) in zip(accumulators, grad_pairs)
             if grad is not None and var is not None
         ]
-        # The final accumulation operation is to increment the counter
-        self.accumulate_ops.append(accumulation_counter.assign_add(1.0))
         # Update trainable variables by applying the accumulated gradients
         # divided by the counter. Note: apply_gradients takes in a list of
         # (grad, var) pairs
         self.train_step = optimizer.apply_gradients(
-            [(accumulator / accumulation_counter, var) \
+            [(accumulator, var) \
              for (accumulator, (grad, var)) in zip(accumulators, grad_pairs)]
         )
         # Accumulators must be zeroed once the accumulated gradient is applied.
@@ -193,8 +194,6 @@ class GradientBatchTrainer:
                 tf.zeros_like(tv)
             ) for (accumulator, tv) in zip(accumulators, trainable_vars)
         ]
-        # Add one last op for zeroing the counter
-        self.zero_ops.append(accumulation_counter.assign(0.0))
 
     def get_batches(self, data, batch_size):
         """
@@ -241,6 +240,17 @@ class GradientBatchTrainer:
         sess.run(self.train_step)
 
 
-def gaussian_likelihood(x, mu, log_std):
+def gaussian_log_likelihood(x, mu, log_std):
+    """
+    Computes the log probability of x under a Gaussian with mean mu and log_std
+    """
     std = tf.exp(log_std) + 1e-8
-    return - 0.5 * tf.reduce_sum(((mu - x) / std) ** 2 , axis=1)
+    return - 0.5 * tf.reduce_sum(((mu - x) / std) ** 2 + 2 * log_std + np.log(2 * np.pi), axis=1)
+
+
+def gather_nd(x, inds, name="gather_nd"):
+    """
+    For ith row of x, gathers the inds[i] element.
+    """
+    indices = tf.stack([tf.range(tf.shape(inds)[0]), inds], axis=1)
+    return tf.gather_nd(x, indices, name=name)

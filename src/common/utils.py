@@ -27,18 +27,18 @@ def set_keras_session(debug):
         keras_backend.set_session(sess)
 
 
-def set_global_seeds(i, debug):
+def set_global_seeds(seed, debug):
     """
     Set seeds for reproducibility.
-    :param i: Seed
+    :param seed: Seed
     :param debug: if True then we use config for better reproducibility but slightly reduced performance,
     otherwise we use better performance (but GPU usage may mean imperfect reproducibility).
     Passed to set_keras_session()
     """
     os.environ['PYTHONHASHSEED'] = '0'
-    np.random.seed(i)
-    random.seed(i)
-    tf.set_random_seed(i)
+    np.random.seed(seed)
+    random.seed(seed)
+    tf.set_random_seed(seed)
     set_keras_session(debug)
 
 

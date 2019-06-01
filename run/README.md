@@ -9,6 +9,9 @@ includes experiments on environments to show performance.
 
 For each algorithm we have a template for training, running and plotting interface.
 
+All examples are OpenAI Gym environments, but some included are Roboschool environments
+which requires installing too.
+
 ## Training
 
 Train model by setting up a training function as seen in examples in `run/<algorithm>/train.py`. You need to 
