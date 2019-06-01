@@ -83,7 +83,7 @@ def train_half_cheetah(seed=123, debug=False, exp_name="vpg-half-cheetah"):
     set_global_seeds(seed, debug)
     env.seed(seed)
     train(env, exp_name, fc_small, nn_baseline=True, nn_baseline_fn=fc_small,
-          discrete=False, min_timesteps_per_batch=30000, learning_rate=0.02, gradient_batch_size=3000,
+          discrete=False, min_timesteps_per_batch=50000, learning_rate=0.005, gradient_batch_size=3000,
           render_every=1000)
 
 if __name__ == "__main__":

@@ -10,8 +10,7 @@ Google Colab running order:
 
 VPG
 
-* lander logs in Downloads add plots and test run
-* Half cheetah if doesn't work try again once with other hyper parameters then leave it!
+* Half cheetah if doesn't work try again with other new hyper parameters set then leave it!
 
 DQN
 
