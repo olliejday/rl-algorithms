@@ -1,7 +1,7 @@
 gym
 gym[atari]
 roboschool
-box2d
+Box2d
 tensorflow>=1.13
 keras
 opencv-python
