@@ -9,8 +9,6 @@ Returns outputs of a fully connected linear (no activation) layer which can be u
 for example to parameterise a Gaussian or a softmax for continuous and discrete actions.
 
 We use tanh activation on fully connected layers.
-
-We initialise output layers to 0 as this helps prevent one action dominating softmax on initialisation.
 """
 
 def cnn_medium(input_placeholder, output_size):
@@ -19,7 +17,7 @@ def cnn_medium(input_placeholder, output_size):
     x = Conv2D(64, (3, 3), activation="relu")(x)
     x = Flatten()(x)
     x = Dense(128, activation="relu")(x)
-    x = Dense(output_size, kernel_initializer='zeros')(x)
+    x = Dense(output_size)(x)
 
     return x
 
@@ -29,7 +27,7 @@ def cnn_small(input_placeholder, output_size):
     x = Conv2D(32, (3, 3), activation="relu")(x)
     x = Flatten()(x)
     x = Dense(64, activation="tanh")(x)
-    x = Dense(output_size, kernel_initializer='zeros')(x)
+    x = Dense(output_size)(x)
 
     return x
 
@@ -37,7 +35,7 @@ def cnn_small(input_placeholder, output_size):
 def fc_small(input_placeholder, output_size):
     x = Dense(64, activation="tanh")(input_placeholder)
     x = Dense(64, activation="tanh")(x)
-    x = Dense(output_size, kernel_initializer='zeros')(x)
+    x = Dense(output_size)(x)
 
     return x
 
@@ -46,6 +44,6 @@ def fc_medium(input_placeholder, output_size):
     x = Dense(32, activation="tanh")(input_placeholder)
     x = Dense(64, activation="tanh")(x)
     x = Dense(32, activation="tanh")(x)
-    x = Dense(output_size, kernel_initializer='zeros')(x)
+    x = Dense(output_size)(x)
 
     return x
