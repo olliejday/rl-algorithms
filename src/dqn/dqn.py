@@ -31,7 +31,8 @@ class DQN():
             experiments_path="",
             double_q=True,
             log_every_n_steps=1e5,
-            integer_observations=True,):
+            integer_observations=True,
+            render=False,):
         """
         Run Deep Q-learning algorithm.
 
@@ -66,8 +67,20 @@ class DQN():
             each update to the target Q network
         grad_norm_clipping: float or None
             If not None gradients' norms are clipped to this value.
+        delta: float
+            for huber loss
         double_q: bool
             If True, then use double Q-learning to compute target values. Otherwise, use vanilla DQN.
+        save_every: int
+            saver a model every N timesteps
+        log_every_n_steps: int
+            print and save to file logs of training metrics every N timesteps
+        experiments_path: str
+            where to save models and logs to
+        integer_observations: bool
+            for replay buffer whether to store integers or floats
+        render: bool
+            whether to render the environment when reporting logs or not
         """
 
         assert type(env.observation_space) == gym.spaces.Box
@@ -107,7 +120,10 @@ class DQN():
                 os.makedirs(save_dir)
 
         # for rendering during training
-        self.render_flag = True
+        self.render = render
+        self.render_flag = False
+        if self.render:
+            self.render_flag = True
 
         self.last_obs = self.env.reset()
         self.num_param_updates = 0
@@ -327,7 +343,8 @@ class DQN():
             self.save_model()
         if self.t % self.log_every_n_steps == 0:
             # render next episode
-            self.render_flag = True
+            if self.render:
+                self.render_flag = True
             return self.t, episode_rewards, episode_lengths, self.exploration.value(self.t)
 
         return None
