@@ -8,3 +8,11 @@ example experiments and code to run on OpenAI Gym environments.
 See src/README.md for implementation details. 
 
 See run/README.md for details of how to run and some example experiments.
+
+## Dependencies
+
+Install dependencies for this project.
+
+```
+pip3 install -r requirements.txt
+```

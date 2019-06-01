@@ -9,8 +9,8 @@ includes experiments on environments to show performance.
 
 For each algorithm we have a template for training, running and plotting interface.
 
-All examples are OpenAI Gym environments, but some included are Roboschool environments
-which requires installing too.
+All examples are OpenAI Gym environments, but some included are Roboschool and Atari environments
+which require installing too.
 
 ## Training
 

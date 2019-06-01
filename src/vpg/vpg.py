@@ -235,7 +235,7 @@ class VanillaPolicyGradients:
             ob_, rew, done, _ = self.env.step(ac)
             buffer.add(ob, ac, rew, logprob)
             steps += 1
-            if done or steps > self.max_path_length:
+            if done or steps >= self.max_path_length:
                 break
 
     def sum_of_rewards(self, rwds):

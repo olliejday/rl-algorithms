@@ -6,6 +6,10 @@
 * Add links to blog (and links from blog to here)
 * delete this todo.txt!!
 
+VPG
+
+* If the Pong doesn't train - debug and try .005 LR
+
 DQN
 
 * Why does performance peak then degrade on lander? Try different learning rate schedule

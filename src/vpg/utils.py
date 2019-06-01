@@ -3,8 +3,7 @@ import tensorflow as tf
 import matplotlib as mpl
 import time
 import os
-
-from keras.layers import Layer
+from gym import spaces, Wrapper
 
 from src.common.utils import plot_training_curves
 
@@ -254,3 +253,35 @@ def gather_nd(x, inds, name="gather_nd"):
     """
     indices = tf.stack([tf.range(tf.shape(inds)[0]), inds], axis=1)
     return tf.gather_nd(x, indices, name=name)
+
+
+def _process_frame84(ob):
+    ob = ob[35:195]  # crop
+    ob = ob[:, :, 0] * 0.299 + ob[:, :, 1] * 0.587 + ob[:, :, 2] * 0.114  # black and white
+    ob = ob[::2, ::2, None]  # downsample by factor of 2 and add channels dimension
+    return ob.astype(np.uint8)
+
+
+class PongWrapper(Wrapper):
+    """
+    Simple wrapper that gives the difference in frames, resized to 80x80 and in B&W rather than the raw frames.
+    """
+    def __init__(self, env):
+        super(PongWrapper, self).__init__(env)
+        self.observation_space = spaces.Box(0, 255, shape=(80, 80, 1))
+        self.env = env
+        self.prev_obs = np.zeros((80, 80, 1))
+
+    def step(self, ac):
+        obs, rew, done, info = self.env.step(ac)
+        obs = _process_frame84(obs)
+        next_obs = obs - self.prev_obs
+        self.prev_obs = obs
+        return next_obs, rew, done, info
+
+    def reset(self):
+        obs = self.env.reset()
+        obs = _process_frame84(obs)
+        next_obs = obs - self.prev_obs
+        self.prev_obs = obs
+        return next_obs

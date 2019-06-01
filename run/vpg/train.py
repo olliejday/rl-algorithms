@@ -3,7 +3,7 @@ import os
 import argparse
 
 from src.vpg.vpg import VanillaPolicyGradients
-from src.vpg.utils import VPGTrainingLogger
+from src.vpg.utils import VPGTrainingLogger, PongWrapper
 from src.vpg.models import fc_small, fc_medium, cnn_small, cnn_medium
 from src.common.utils import set_global_seeds
 
@@ -81,8 +81,9 @@ def train_pong(seed=123, debug=False, exp_name="vpg-pong"):
     env = gym.make("Pong-v0")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    train(env, exp_name, cnn_small, nn_baseline=True, nn_baseline_fn=cnn_small,
-          discrete=True, min_timesteps_per_batch=10000, learning_rate=0.005)
+    env = PongWrapper(env)
+    train(env, exp_name, cnn_small, nn_baseline=True, nn_baseline_fn=cnn_small, max_path_length=10000,
+          discrete=True, min_timesteps_per_batch=7500, learning_rate=0.01, gradient_batch_size=100)
 
 
 if __name__ == "__main__":
