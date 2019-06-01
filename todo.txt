@@ -8,7 +8,7 @@
 
 VPG
 
-* If the Pong doesn't train - debug and try .005 LR
+* If the Pong doesn't train - debug and try .01 LR
 
 DQN
 

@@ -37,7 +37,7 @@ def cnn_small(input_placeholder, output_size):
 def fc_small(input_placeholder, output_size):
     x = Dense(64, activation="tanh")(input_placeholder)
     x = Dense(64, activation="tanh")(x)
-    x = Dense(output_size)(x)
+    x = Dense(output_size, kernel_initializer='zeros')(x)
 
     return x
 
