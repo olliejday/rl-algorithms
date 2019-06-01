@@ -1,15 +1,17 @@
 #TODO:
 
-* See runs in homeworks for minimum to ship with example runs of, also see reports for things to mention.
 * Update READMEs
 * Factor out snake gym into a branch (make sure readmes etc up to date with main branch), link to and from snake repo
 * Add links to blog (and links from blog to here)
+* Perhaps could add actor critic from hw3
 * delete this todo.txt!!
 
 VPG
 
-* If the Pong doesn't train - debug and try .01 LR
+* Training pong 50k batch, 250 iter, with LR = 0.01, if works keep it if not then leave it
+* Train lander on google colab - perhaps increase learning rate - see hw2 params
 
 DQN
 
 * Why does performance peak then degrade on lander? Try different learning rate schedule
+* Do pong run on google colab

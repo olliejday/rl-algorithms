@@ -83,7 +83,8 @@ def train_pong(seed=123, debug=False, exp_name="vpg-pong"):
     env.seed(seed)
     env = PongWrapper(env)
     train(env, exp_name, cnn_small, nn_baseline=True, nn_baseline_fn=cnn_small, max_path_length=10000,
-          discrete=True, min_timesteps_per_batch=25000, learning_rate=0.01, gradient_batch_size=100, render_every=1000)
+          discrete=True, min_timesteps_per_batch=30000, learning_rate=0.01, gradient_batch_size=100, render_every=1000,
+          n_iter=500)
 
 
 if __name__ == "__main__":
