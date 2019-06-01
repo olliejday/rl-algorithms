@@ -74,17 +74,8 @@ def train_lander(seed=123, debug=False, exp_name="vpg-lander"):
     set_global_seeds(seed, debug)
     env.seed(seed)
     train(env, exp_name, fc_small, nn_baseline=True, nn_baseline_fn=fc_small,
-          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.005, gradient_batch_size=40000)
-
-
-def train_pong(seed=123, debug=False, exp_name="vpg-pong"):
-    env = gym.make("Pong-v0")
-    set_global_seeds(seed, debug)
-    env.seed(seed)
-    env = PongWrapper(env)
-    train(env, exp_name, cnn_small, nn_baseline=True, nn_baseline_fn=cnn_small, max_path_length=10000,
-          discrete=True, min_timesteps_per_batch=30000, learning_rate=0.01, gradient_batch_size=100, render_every=1000,
-          n_iter=500)
+          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.01, gradient_batch_size=40000,
+          render_every=1000)
 
 
 if __name__ == "__main__":
@@ -92,7 +83,6 @@ if __name__ == "__main__":
     options['lander'] = train_lander
     options['inverted-pendulum'] = train_inverted_pendulum
     options['cartpole'] = train_cartpole
-    options['pong'] = train_pong
 
     parser = argparse.ArgumentParser()
     parser.add_argument("experiment", choices=options.keys())

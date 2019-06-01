@@ -8,8 +8,7 @@
 
 VPG
 
-* Training pong 50k batch, 250 iter, with LR = 0.01, if works keep it if not then leave it
-* Train lander on google colab - perhaps increase learning rate - see hw2 params
+* Train lander on google colab - perhaps increase learning rate (eg. 0.01) - see hw2 params
 
 DQN
 
