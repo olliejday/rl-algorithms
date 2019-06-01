@@ -6,11 +6,14 @@
 * Perhaps could add actor critic from hw3
 * delete this todo.txt!!
 
+Google Colab running order:
+
 VPG
 
-* Train lander on google colab - perhaps increase learning rate (eg. 0.01) - see hw2 params
+* Half cheetah
+* add plots and test run of lander
 
 DQN
 
-* Why does performance peak then degrade on lander? Try different learning rate schedule
+* Lander with new LR schedule
 * Do pong run on google colab

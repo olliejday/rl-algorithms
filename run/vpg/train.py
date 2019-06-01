@@ -1,6 +1,7 @@
 import gym
 import os
 import argparse
+import roboschool
 
 from src.vpg.vpg import VanillaPolicyGradients
 from src.vpg.utils import VPGTrainingLogger, PongWrapper
@@ -61,7 +62,6 @@ def train_cartpole(seed=123, debug=True, exp_name="vpg-cartpole"):
 
 
 def train_inverted_pendulum(seed=123, debug=True, exp_name="vpg-inverted-pendulum"):
-    import roboschool
     env = gym.make("RoboschoolInvertedPendulum-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
@@ -78,11 +78,20 @@ def train_lander(seed=123, debug=False, exp_name="vpg-lander"):
           render_every=1000)
 
 
+def train_half_cheetah(seed=123, debug=False, exp_name="vpg-half-cheetah"):
+    env = gym.make("RoboschoolHalfCheetah-v1")
+    set_global_seeds(seed, debug)
+    env.seed(seed)
+    train(env, exp_name, fc_small, nn_baseline=True, nn_baseline_fn=fc_small,
+          discrete=False, min_timesteps_per_batch=3000, learning_rate=0.02, gradient_batch_size=3000,
+          render_every=1000)
+
 if __name__ == "__main__":
     options = {}
     options['lander'] = train_lander
     options['inverted-pendulum'] = train_inverted_pendulum
     options['cartpole'] = train_cartpole
+    options['half-cheetah'] = train_half_cheetah
 
     parser = argparse.ArgumentParser()
     parser.add_argument("experiment", choices=options.keys())

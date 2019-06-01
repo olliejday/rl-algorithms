@@ -66,7 +66,13 @@ def train_lander(seed=123, debug=True):
         ], outside_value=0.02
     )
 
-    lr_schedule = ConstantSchedule(1e-3)
+    lr_schedule = PiecewiseSchedule([
+        (0, 1e-3),
+        (num_timesteps / 2, 5e-4),
+        (3 * num_timesteps / 4, 1e-4),
+    ],
+        outside_value=1e-4)
+
 
     optimizer = OptimizerSpec(
         constructor=tf.train.AdamOptimizer,
