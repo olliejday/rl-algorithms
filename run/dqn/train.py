@@ -84,7 +84,7 @@ def train_lander(seed=123, debug=True):
     env = gym.make("LunarLander-v2")
     env = get_env(env, seed, debug)
 
-    train("dqn_lander",
+    train("dqn-lander",
           env,
           DQNFCModelKeras,
           optimizer,

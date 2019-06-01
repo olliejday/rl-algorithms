@@ -10,10 +10,9 @@ Google Colab running order:
 
 VPG
 
-* Half cheetah
-* add plots and test run of lander
+* lander logs in Downloads add plots and test run
+* Half cheetah if doesn't work try again once with other hyper parameters then leave it!
 
 DQN
 
-* Lander with new LR schedule
 * Do pong run on google colab
