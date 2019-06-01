@@ -14,5 +14,6 @@ See run/README.md for details of how to run and some example experiments.
 Install dependencies for this project.
 
 ```
+cd rl-algorithms
 pip3 install -r requirements.txt
 ```
