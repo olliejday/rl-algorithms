@@ -74,7 +74,7 @@ def train_lander(seed=123, debug=False, exp_name="vpg-lander"):
     set_global_seeds(seed, debug)
     env.seed(seed)
     train(env, exp_name, fc_small, nn_baseline=True, nn_baseline_fn=fc_small,
-          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.01, gradient_batch_size=40000,
+          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.005, gradient_batch_size=1000,
           render_every=1000)
 
 

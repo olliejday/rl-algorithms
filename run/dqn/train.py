@@ -36,10 +36,9 @@ def train(exp_name,
     dqn.setup_graph()
 
     training_logger = DQNTrainingLogger(experiments_path, ["Model_fn: {}".format(model_class.__name__),
-                                                            "Seed: {}".format(seed),
                                                             str(dqn)])
 
-    for _ in range(int(num_timesteps)):
+    while dqn.t < num_timesteps:
         dqn.step_env()
         dqn.update_model()
         logs = dqn.log_progress()
@@ -83,7 +82,6 @@ def train_lander(seed=123, debug=True):
           env,
           DQNFCModelKeras,
           optimizer,
-          debug=True,
           exploration=exploration,
           num_timesteps=num_timesteps,
           replay_buffer_size=50000,
