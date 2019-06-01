@@ -122,8 +122,6 @@ class DQN():
         # for rendering during training
         self.render = render
         self.render_flag = False
-        if self.render:
-            self.render_flag = True
 
         self.last_obs = self.env.reset()
         self.num_param_updates = 0
@@ -283,7 +281,7 @@ class DQN():
             action = np.random.choice(self.ac_dim)
 
         # render the env
-        if self.render_flag:
+        if self.render_flag and self.render:
             self.env.render()
             time.sleep(0.1)
 
@@ -343,8 +341,7 @@ class DQN():
             self.save_model()
         if self.t % self.log_every_n_steps == 0:
             # render next episode
-            if self.render:
-                self.render_flag = True
+            self.render_flag = True
             return self.t, episode_rewards, episode_lengths, self.exploration.value(self.t)
 
         return None
