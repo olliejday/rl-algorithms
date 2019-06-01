@@ -1,5 +1,5 @@
 gym
-gym['atari']
+gym[atari]
 roboschool
 tensorflow>=1.13
 keras
