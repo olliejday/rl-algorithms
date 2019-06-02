@@ -23,16 +23,16 @@ def train(env, exp_name, model_fn, n_iter=100, save_every=25, **kwargs):
     experiments_path = os.path.join(root_dir, "experiments", exp_name)
 
     ac = ActorCrtic(model_fn,
-                     env,
-                     experiments_path=experiments_path,
-                     **kwargs)
+                    env,
+                    experiments_path=experiments_path,
+                    **kwargs)
 
     training_logger = ACTrainingLogger(experiments_path, ["Model_fn: {}".format(model_fn.__name__),
                                                           str(ac)])
 
     ac.setup_graph()
 
-    for itr in range(1, n_iter+1):
+    for itr in range(1, n_iter + 1):
         buffer = ac.sample_trajectories(itr)
 
         # get one long sequence of observations and actions
@@ -42,7 +42,8 @@ def train(env, exp_name, model_fn, n_iter=100, save_every=25, **kwargs):
         ac.update_parameters(obs, next_obs, rwds, terminals, acs)
         approx_entropy, approx_kl = ac.training_metrics(obs, acs, logprobs)
 
-        training_logger.log(itr, [sum(r) for r in buffer.rwds], [len(r) for r in buffer.rwds], approx_entropy, approx_kl)
+        training_logger.log(itr, [sum(r) for r in buffer.rwds], [len(r) for r in buffer.rwds], approx_entropy,
+                            approx_kl)
 
         if itr % save_every == 0:
             ac.save_model(training_logger.timesteps)
@@ -63,17 +64,17 @@ def train_inverted_pendulum(seed=123, debug=True, exp_name="ac-inverted-pendulum
     env = gym.make("RoboschoolInvertedPendulum-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    train(env, exp_name, fc, min_timesteps_per_batch=2500,
-          discrete=False, learning_rate=0.05, n_iter=30, gamma=0.9, render_every=1000)
+    train(env, exp_name, fc, min_timesteps_per_batch=5000, discrete=False, learning_rate_actor=0.01,
+          learning_rate_critic=0.01, n_iter=30, gamma=0.95, render_every=1000, save_every=30)
 
 
 def train_half_cheetah(seed=123, debug=False, exp_name="ac-half-cheetah"):
     env = gym.make("RoboschoolHalfCheetah-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    train(env, exp_name, fc,
-          discrete=False, min_timesteps_per_batch=50000, learning_rate=0.005, gradient_batch_size=3000,
-          render_every=1000)
+    train(env, exp_name, fc, discrete=False, min_timesteps_per_batch=30000, render_every=1000, gamma=0.9,
+          size_actor=32, size_critic=32, learning_rate_actor=0.02, learning_rate_critic=0.02, max_path_length=250)
+
 
 if __name__ == "__main__":
     options = {}
