@@ -72,8 +72,8 @@ def train_half_cheetah(seed=123, debug=False, exp_name="ac-half-cheetah"):
     env = gym.make("RoboschoolHalfCheetah-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    train(env, exp_name, fc, discrete=False, min_timesteps_per_batch=30000, render_every=1000, gamma=0.9,
-          size_actor=32, size_critic=32, learning_rate_actor=0.02, learning_rate_critic=0.02, max_path_length=250)
+    train(env, exp_name, fc, discrete=False, min_timesteps_per_batch=30000, render_every=1000, gamma=0.95,
+          size_actor=32, size_critic=32, learning_rate_actor=0.035, learning_rate_critic=0.035, max_path_length=300)
 
 
 if __name__ == "__main__":

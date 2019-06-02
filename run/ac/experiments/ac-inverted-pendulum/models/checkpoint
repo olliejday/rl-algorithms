@@ -1,2 +1,2 @@
-model_checkpoint_path: "/home/oliver/Projects/ai/rl-algorithms/run/ac/experiments/ac-inverted-pendulum/models/model-158019"
-all_model_checkpoint_paths: "/home/oliver/Projects/ai/rl-algorithms/run/ac/experiments/ac-inverted-pendulum/models/model-158019"
+model_checkpoint_path: "model-158019"
+all_model_checkpoint_paths: "model-158019"

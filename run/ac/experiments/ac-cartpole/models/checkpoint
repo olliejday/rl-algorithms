@@ -1,2 +1,2 @@
-model_checkpoint_path: "/home/oliver/Projects/ai/rl-algorithms/run/ac/experiments/ac-cartpole/models/model-52086"
-all_model_checkpoint_paths: "/home/oliver/Projects/ai/rl-algorithms/run/ac/experiments/ac-cartpole/models/model-52086"
+model_checkpoint_path: "model-52086"
+all_model_checkpoint_paths: "model-52086"

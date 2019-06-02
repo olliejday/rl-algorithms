@@ -50,7 +50,8 @@ def run_half_cheetah(exp_name="ac-half-cheetah", seed=123, debug=False):
     env = gym.make("RoboschoolHalfCheetah-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    run(env, exp_name, fc, discrete=False)
+    run(env, exp_name, fc, discrete=False, size_actor=32, size_critic=32)
+
 
 if __name__ == "__main__":
     options = {}
