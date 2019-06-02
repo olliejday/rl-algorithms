@@ -34,4 +34,4 @@ This repo is built on research work:
 
 And code from:
 
-[3] [UC Berkeley CS294-112 Assignments](https://github.com/berkeleydeeprlcourse/homework)
+[4] [UC Berkeley CS294-112 Assignments](https://github.com/berkeleydeeprlcourse/homework)
