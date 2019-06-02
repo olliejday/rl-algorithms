@@ -1,3 +1,6 @@
+"""
+Uses code from UC Berkeley CS294 Deep Reinforcement Learning
+"""
 import cv2
 import numpy as np
 from collections import deque

@@ -1,3 +1,6 @@
+"""
+Uses code from UC Berkeley CS294 Deep Reinforcement Learning
+"""
 import time
 import gym.spaces
 import numpy as np

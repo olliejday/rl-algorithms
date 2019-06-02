@@ -1,4 +1,3 @@
-import tensorflow as tf
 from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Flatten
 
 """

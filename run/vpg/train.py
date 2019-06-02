@@ -4,7 +4,7 @@ import argparse
 import roboschool
 
 from src.vpg.vpg import VanillaPolicyGradients
-from src.vpg.utils import VPGTrainingLogger, PongWrapper
+from src.vpg.utils import VPGTrainingLogger
 from src.vpg.models import fc_small, fc_medium, cnn_small, cnn_medium
 from src.common.utils import set_global_seeds
 

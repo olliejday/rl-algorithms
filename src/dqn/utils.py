@@ -1,5 +1,6 @@
-"""This file includes a collection of utility functions that are useful for
-implementing DQN."""
+"""
+Uses code from UC Berkeley CS294 Deep Reinforcement Learning
+"""
 import gym
 from gym import wrappers
 import tensorflow as tf

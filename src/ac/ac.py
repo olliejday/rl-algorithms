@@ -8,18 +8,23 @@ import time
 import os
 import keras.backend as keras_backend
 
-from src.vpg.utils import VPGBuffer, GradientBatchTrainer, normalise, gaussian_log_likelihood, gather_nd
+from src.ac.utils import ACBuffer, normalise, gaussian_log_likelihood, gather_nd
 
 
-class VanillaPolicyGradients:
+class ActorCrtic:
     def __init__(self,
                  model_fn,
                  env,
                  experiments_path="",
                  discrete=True,
-                 learning_rate=5e-3,
-                 nn_baseline=False,
-                 nn_baseline_fn=None,
+                 learning_rate_actor=5e-3,
+                 learning_rate_critic=5e-3,
+                 size_actor=64,
+                 size_critic=64,
+                 n_layers_actor=2,
+                 n_layers_critic=2,
+                 num_target_updates=10,
+                 num_grad_steps_per_target_update=10,
                  render_every=20,
                  max_path_length=1000,
                  min_timesteps_per_batch=10000,
@@ -30,11 +35,11 @@ class VanillaPolicyGradients:
                  ):
 
         """
-        Run Vanilla Policy Gradients algorithm.
+        Run Actor Critic algorithm.
 
         Parameters
         ----------
-        model_fn: src.vpg.models.model
+        model_fn: src.ac.models.model
             Model to use for computing the policy, see models.py.
         env: gym.Env
             gym environment to train on.
@@ -42,14 +47,18 @@ class VanillaPolicyGradients:
             path to save models to during training
         discrete: bool
             Whether the environment actions are discrete or continuous
-        learning_rate: float
-            Learning rate to train with.
-        nn_baseline: bool
-            Whether to use a neural network baseline when computing advantages
-        nn_baseline_fn: src.vpg.models.model
-            Model function to compute value baseline, see models.py.
-            Ignored if nn_baseline=False.
-            Must be set if nn_baseline=True.
+        learning_rate_actor: float
+            Learning rate to train actor with.
+        size_actor: int
+            size for actor hidden layers (number of units).
+        n_layers_actor: int
+            number of hidden layers in actor
+        learning_rate_actor: float
+            Learning rate to train critic with.
+        size_actor: int
+            size for critic hidden layers (number of units).
+        n_layers_actor: int
+            number of hidden layers in critic
         render_every: int
             Render an episode regularly through training to monitor progress
         max_path_length: int
@@ -65,6 +74,11 @@ class VanillaPolicyGradients:
         gradient_batch_size: int
             To split a batch into mini-batches which the gradient is averaged over to allow larger
             min_timesteps_per_batch than fits into GPU memory in one go.
+        num_target_updates: int
+            number of target updates to critic, where each target update consists of num_grad_steps_per_target_update
+            update steps, recomputing the targets each target update.
+        num_grad_steps_per_target_update:
+            number of gradient steps per target update for critic.
         """
         self.env = env
         # Is this env continuous, or self.discrete?
@@ -78,9 +92,17 @@ class VanillaPolicyGradients:
 
         self.experiments_path = experiments_path
 
-        self.learning_rate = learning_rate
-        self.nn_baseline = nn_baseline
-        self.nn_baseline_fn = nn_baseline_fn
+        # actor params
+        self.learning_rate_actor = learning_rate_actor
+        self.size_actor = size_actor
+        self.n_layers_actor = n_layers_actor
+        # critic params
+        self.learning_rate_critic = learning_rate_critic
+        self.size_critic = size_critic
+        self.n_layers_critic = n_layers_critic
+        # training params
+        self.num_grad_steps_per_target_update = num_grad_steps_per_target_update
+        self.num_target_updates = num_target_updates
         self.render_every = render_every
         self.max_path_length = max_path_length
         self.min_timesteps_per_batch = min_timesteps_per_batch
@@ -96,21 +118,29 @@ class VanillaPolicyGradients:
                 print("Made model directory: {}".format(save_dir))
                 os.makedirs(save_dir)
 
-
     def __str__(self):
         """
         Define string behaviour as key parameters for logging
         """
-        to_string = "learning_rate: {}, nn_basline: {}, nn_baseline_fn: {}, " \
-                    "max_path_length: {},  min_timesteps_per_batch: {}, " \
-                    "reward_to_go: {}, gamma: {}, normalise_advntages: {}".format(self.learning_rate,
-                                                                                  self.nn_baseline,
-                                                                                  self.nn_baseline_fn,
-                                                                                  self.max_path_length,
-                                                                                  self.min_timesteps_per_batch,
-                                                                                  self.reward_to_go,
-                                                                                  self.gamma,
-                                                                                  self.normalise_advantages)
+        to_string = "learning_rate_actor: {}, learning_rate_critic: {}, " \
+                    "size_actor: {}, size_critic: {}, " \
+                    "n_layers_actor: {}, n_layers_critic: {}, " \
+                    "num_grad_steps_per_target_update: {}, " \
+                    "num_target_updates: {}" \
+                    "max_path_length: {},  " \
+                    "min_timesteps_per_batch: {}, " \
+                    "reward_to_go: {}, " \
+                    "gamma: {}, " \
+                    "normalise_advntages: {}".format(self.learning_rate_actor, self.learning_rate_critic,
+                                                     self.size_actor, self.size_critic,
+                                                     self.n_layers_actor, self.n_layers_critic,
+                                                     self.num_grad_steps_per_target_update,
+                                                     self.num_target_updates,
+                                                     self.max_path_length,
+                                                     self.min_timesteps_per_batch,
+                                                     self.reward_to_go,
+                                                     self.gamma,
+                                                     self.normalise_advantages)
         return to_string
 
     def setup_placeholders(self):
@@ -158,18 +188,19 @@ class VanillaPolicyGradients:
         self.approx_entropy = tf.reduce_mean(-self.logprob_ac)
 
         # the policy gradient loss
-        loss = - tf.reduce_mean(self.logprob_ac * self.adv_ph, name="loss")
-        self.policy_batch_trainer = GradientBatchTrainer(loss, self.learning_rate)
+        actor_loss = - tf.reduce_mean(self.logprob_ac * self.adv_ph, name="loss")
+        self.actor_update_op = tf.train.AdamOptimizer(self.learning_rate_actor).minimize(actor_loss)
 
-
-        if self.nn_baseline:
-            self.baseline_prediction = tf.squeeze(self.nn_baseline_fn(self.obs_ph, 1))
-            # size None because we have vector of length batch size
-            self.baseline_targets_ph = tf.placeholder(tf.float32, shape=[None], name="reward_targets_nn_V")
-            # baseline loss on true reward targets
-            baseline_loss = 0.5 * tf.reduce_sum((self.baseline_prediction - self.baseline_targets_ph) ** 2,
-                                                name="nn_baseline_loss")
-            self.baseline_batch_trainer = GradientBatchTrainer(baseline_loss, self.learning_rate)
+        # define the critic
+        self.critic_prediction = tf.squeeze(self.model_fn(
+            self.obs_ph,
+            1,
+            "nn_critic",
+            n_layers=self.n_layers_critic,
+            size=self.size_critic))
+        self.critic_target_ph = tf.placeholder(shape=[None], name="critic_target", dtype=tf.float32)
+        critic_loss = tf.losses.mean_squared_error(self.critic_target_ph, self.critic_prediction)
+        self.critic_update_op = tf.train.AdamOptimizer(self.learning_rate_critic).minimize(critic_loss)
 
     def setup_graph(self):
         """
@@ -178,7 +209,7 @@ class VanillaPolicyGradients:
         """
         self.setup_placeholders()
 
-        model_outputs = self.model_fn(self.obs_ph, self.ac_dim)
+        model_outputs = self.model_fn(self.obs_ph, self.ac_dim, "policy_fwd", self.n_layers_actor, self.size_actor)
         self.setup_inference(model_outputs)
         self.setup_loss()
         self.init_tf()
@@ -191,7 +222,7 @@ class VanillaPolicyGradients:
 
     def save_model(self, timestep):
         """
-        Save current policy model.
+        Save current weights.
         """
         if self.experiments_path != "":
             fpath = os.path.join(self.experiments_path, "models", "model-{}".format(timestep))
@@ -209,9 +240,9 @@ class VanillaPolicyGradients:
     def sample_trajectories(self, itr):
         """
         Collect paths until we have enough timesteps.
-        Returns VPGBuffer() of experience.
+        Returns ACBuffer() of experience.
         """
-        buffer = VPGBuffer()
+        buffer = ACBuffer()
         while True:
             animate_this_episode = (buffer.length == -1 and itr % self.render_every == 0)
             self.sample_trajectory(buffer, animate_this_episode)
@@ -236,131 +267,99 @@ class VanillaPolicyGradients:
             ac = ac[0]
             logprob = logprob[0]
             ob_, rew, done, _ = self.env.step(ac)
-            buffer.add(ob, ac, rew, logprob)
             steps += 1
             if done or steps >= self.max_path_length:
+                buffer.add(ob, ac, rew, ob_, 1, logprob)  # terminal is 1 if finished
                 break
 
-    def sum_of_rewards(self, rwds):
+            buffer.add(ob, ac, rew, ob_, 0, logprob)  # terminal is 0 if not done
+
+    def estimate_advantage(self, ob, next_ob, rew, terminal_n):
         """
-        Monte Carlo estimation of the Q function.
+            Estimates the advantage function value for each timestep.
 
-        Computes discounted sum of rewards for a list of lists of returns each trajectory.
+            let sum_of_path_lengths be the sum of the lengths of the paths sampled from
+                Agent.sample_trajectories
 
-        Reward to go :
-            In this case use reward to go, ie. each timestep's return is the sum of discounted rewards from
-            then until end.
-        Otherwise:
-            In this case use full sum of discounted rewards as the return for each timestep
+            arguments:
+                ob: shape: (sum_of_path_lengths, ob_dim)
+                next_ob: shape: (sum_of_path_lengths, ob_dim). The observation after taking one step forward
+                rew: length: sum_of_path_lengths. Each element in re_n is a scalar containing
+                    the reward for each timestep
+                terminal_n: length: sum_of_path_lengths. Each element in terminal_n is either 1 if the episode ended
+                    at that timestep of 0 if the episode did not end
 
-        Returns qs (discounted reward sequences)
+            returns:
+                adv_n: shape: (sum_of_path_lengths). A single vector for the estimated
+                    advantages whose length is the sum of the lengths of the paths
         """
-        if self.reward_to_go:
-            # make discount matrix for longest trajectory, N, it's a triangle matrix to offset the timesteps:
-            # [gamma^0 gamma^1 ... gamma^N]
-            # [ 0 gamma^0 ... gamma^N-1]
-            # ...
-            # [ 0 0 0 0 ... gamma^0]
+        V_no = self.sess.run(self.critic_prediction, feed_dict={self.obs_ph: next_ob})
+        Q_n = rew + self.gamma * V_no * (1 - terminal_n)  # mask if done
+        V_n = self.sess.run(self.critic_prediction, feed_dict={self.obs_ph: ob})
+        adv_n = Q_n - V_n
 
-            longest_trajectory = max([len(r) for r in rwds])
-            discount = np.triu(
-                [[self.gamma ** (i - j) for i in range(longest_trajectory)] for j in range(longest_trajectory)])
-            qs = []
-            for re in rwds:
-                # each reward is multiplied
-                discounted_re = np.dot(discount[:len(re), : len(re)], re)
-                qs.append(discounted_re)
-        else:
-            # get discount vector for longest trajectory
-            longest_trajectory = max([len(r) for r in rwds])
-            discount = np.array([self.gamma ** i for i in range(longest_trajectory)])
-            qs = []
-            for re in rwds:
-                # np.dot compute the sum of discounted rewards, then we make this into a vector for the
-                # full discounted reward case
-                disctounted_re = np.ones_like(re) * np.dot(re, discount[:len(re)])
-                qs.append(disctounted_re)
-        qs = np.hstack(qs)
-        return qs
-
-    def compute_advantage(self, obs, qs):
-        """
-        If using neural network baseline then here we compute the estimated values and adjust the sums of rewards
-        to compute advantages.
-
-        Returns advs (advantage estimates)
-        """
-        # Computing Baselines
-        if self.nn_baseline:
-            # prediction from nn baseline
-            baseline_preds = np.zeros_like(qs)
-            n = int(len(baseline_preds) / self.gradient_batch_size)
-            if len(baseline_preds) % self.gradient_batch_size != 0: n += 1
-            for i in range(n):
-                start = i * self.gradient_batch_size
-                end = (i+1) * self.gradient_batch_size
-
-                # prediction from nn baseline
-                baseline_preds[start:end] = self.sess.run(self.baseline_prediction,
-                                                      feed_dict={self.obs_ph: obs[start:end]})
-            # normalise to 0 mean and 1 std
-            bn_norm = normalise(baseline_preds)
-            # set to q mean and std
-            qs_mean = np.mean(qs)
-            qs_std = np.std(qs)
-            bn_norm = bn_norm * qs_std + qs_mean
-
-            advs = qs - bn_norm
-        else:
-            advs = qs.copy()
-        return advs
-
-    def estimate_return(self, obs, rews):
-        """
-        Estimates the returns over a set of trajectories.
-        Can normalise advantaged to reduce variance.
-
-        Returns q_n, adv_n (disctounted sum of rewards, advantaged estimates)
-        """
-        q_n = self.sum_of_rewards(rews)
-        adv_n = self.compute_advantage(obs, q_n)
         if self.normalise_advantages:
-            # On the next line, implement a trick which is known empirically to reduce variance
-            # in policy gradient methods: normalize adv_n to have mean zero and std=1.
             adv_n = normalise(adv_n)
-        return q_n, adv_n
+        return adv_n
 
-    def update_parameters(self, obs, acs, qs, advs, logprobs):
+    def update_critic(self, ob, next_ob, rew, terminal_n):
         """
-        Update function to call to train policy and (possibly) neural network baseline.
+            Use bootstrapped target values to update the critic
+
+            let sum_of_path_lengths be the sum of the lengths of the paths sampled from
+                Agent.sample_trajectories
+            let num_paths be the number of paths sampled from Agent.sample_trajectories
+
+            arguments:
+                ob: shape: (sum_of_path_lengths, ob_dim)
+                next_ob: shape: (sum_of_path_lengths, ob_dim). The observation after taking one step forward
+                rew: length: sum_of_path_lengths. Each element in re_n is a scalar containing
+                    the reward for each timestep
+                terminal_n: length: sum_of_path_lengths. Each element in terminal_n is either 1 if the episode ended
+                    at that timestep of 0 if the episode did not end
+        """
+        for _ in range(self.num_target_updates):
+            V_no = self.sess.run(self.critic_prediction, feed_dict={self.obs_ph: next_ob})
+            targets_n = rew + self.gamma * V_no * (1 - terminal_n)  # mask if done
+            for _ in range(self.num_grad_steps_per_target_update):
+                self.sess.run(self.critic_update_op, feed_dict={self.critic_target_ph: targets_n,
+                                                                self.obs_ph: ob})
+
+    def update_actor(self, ob_no, ac_na, adv_n):
+        """
+            Update the parameters of the policy.
+
+            arguments:
+                ob_no: shape: (sum_of_path_lengths, ob_dim)
+                ac_na: shape: (sum_of_path_lengths).
+                adv_n: shape: (sum_of_path_lengths). A single vector for the estimated
+                    advantages whose length is the sum of the lengths of the paths
+        """
+        self.sess.run(self.actor_update_op,
+                      feed_dict={self.obs_ph: ob_no, self.acs_ph: ac_na, self.adv_ph: adv_n})
+
+    def update_parameters(self, obs, next_obs, rews, terminal_n, acs):
+        """
+        Main update function to call to train actor and critic.
         Returns approx_entropy, approx_kl
         """
-        # Optimizing Neural Network Baseline
-        if self.nn_baseline:
-            # If a neural network baseline is used, set up the targets and the inputs for the
-            # baseline.
-            target_n = normalise(qs)
-            self.baseline_batch_trainer.train(feed_dict={self.obs_ph: obs,
-                                                         self.baseline_targets_ph: target_n},
-                                              batch_size=self.gradient_batch_size,
-                                              sess=self.sess)
+        self.update_critic(obs, next_obs, rews, terminal_n)
+        adv_n = self.estimate_advantage(obs, next_obs, rews, terminal_n)
+        self.update_actor(obs, acs, adv_n)
+
+    def training_metrics(self, obs, acs, logprobs):
+        """
+        Logging function
+        Returns approx_entropy, approx_kl
+        """
         # compute entropy before update
         approx_entropy = self.sess.run(self.approx_entropy,
                                        feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
                                                   self.acs_ph: acs[:self.gradient_batch_size]})
-        # Performing the Policy Update
-        self.policy_batch_trainer.train(feed_dict={self.obs_ph: obs,
-                                                   self.acs_ph: acs,
-                                                   self.adv_ph: advs},
-                                        batch_size=self.gradient_batch_size,
-                                        sess=self.sess)
-        # self.sess.run(self.update_op, feed_dict={self.obs_ph: obs,
-        #                                            self.acs_ph: acs,
-        #                                            self.adv_ph: advs})
         approx_kl = self.sess.run(self.approx_kl,
-                                     feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
-                                                self.acs_ph: acs[:self.gradient_batch_size],
-                                                self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
+                                  feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
+                                             self.acs_ph: acs[:self.gradient_batch_size],
+                                             self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
         return approx_entropy, approx_kl
 
 
@@ -372,18 +371,18 @@ def run_model(env, model_fn, experiments_path, model_path=None, n_episodes=3, **
     :param experiments_path: the path to the experiments directory, with logs and models
     :param model_path: file path of model to run, if None then latest model in experiments_path is loaded
     :param n_episodes: number of episodes to run
-    :param **kwargs: for VPG setup
+    :param **kwargs: for AC setup
     """
 
-    vpg = VanillaPolicyGradients(model_fn,
-                                 env,
-                                 experiments_path=experiments_path,
-                                 **kwargs)
-    vpg.setup_graph()
-    vpg.load_model(model_path)
+    actrcrtc = ActorCrtic(model_fn,
+                          env,
+                          experiments_path=experiments_path,
+                          **kwargs)
+    actrcrtc.setup_graph()
+    actrcrtc.load_model(model_path)
 
     for i in range(n_episodes):
-        buffer = VPGBuffer()
-        vpg.sample_trajectory(buffer, True)
+        buffer = ACBuffer()
+        actrcrtc.sample_trajectory(buffer, True)
 
         print("Reward: {}".format(sum(buffer.rwds[0])))
