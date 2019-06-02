@@ -5,6 +5,10 @@
 A set of implementations of key reinforcement learning algorithms in Tensorflow. Comes with 
 example experiments and code to run on OpenAI Gym environments.
 
+This branch includes only experiments run on the [snake](https://github.com/olliejday/snake-rl) environments as per [OpenAI's requests 
+for research 2.0 warmups](https://openai.com/blog/requests-for-research-2/).
+See main branch for other OpenAI Gym environments.
+
 See src/README.md for implementation details. 
 
 See run/README.md for details of how to run and some example experiments.

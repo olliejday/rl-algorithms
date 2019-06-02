@@ -7,19 +7,10 @@ includes experiments on environments to show performance.
 
 ## Examples
 
-Example experiments (training code and parameters, trained models, logs and plots from training) 
-included are:
-
-* VPG
-    * CartPole-v0
-    * RoboschoolInvertedPendulum-v1
-    * LunarLanderContinuous-v2
-    * RoboschoolHalfCheetah-v1
-
-* DQN
-    * PongNoFrameskip-v4 (note to run the Pong model, need to first unzip it)
-    * LunarLander-v2
-    * (on /snake branch) [snake-grid-v0](https://github.com/olliejday/snake-rl)
+This snake branch includes experiments for the [snake](https://github.com/olliejday/snake-rl) environments. Included
+is code to run [snake-grid-v0](https://github.com/olliejday/snake-rl) and [snake-stacked-v0](https://github.com/olliejday/snake-rl).
+We also have trained models, training logs and plots for [snake-grid-v0](https://github.com/olliejday/snake-rl) experiments 
+with the DQN algorithm.
 
 ## Usage
 
