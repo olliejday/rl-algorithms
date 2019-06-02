@@ -9,6 +9,12 @@ See src/README.md for implementation details.
 
 See run/README.md for details of how to run and some example experiments.
 
+## Algorithms
+
+* Vanilla Policy Gradients (VPG) / REINFORCE
+* Deep Q-Networks (DQN)
+* Actor Critic (A2C)
+
 ## Dependencies
 
 Install dependencies for this project.
@@ -22,8 +28,9 @@ pip3 install -r requirements.txt
 
 This repo is built on research work:
 
-[1] Policy Gradient Methods for Reinforcement Learning with Function Approximation, Sutton et al, 2000. <br/>
-[2] Playing Atari with Deep Reinforcement Learning, Mnih et al, 2013.<br/>
+[1] Policy Gradient Methods for Reinforcement Learning with Function Approximation, Sutton et al, 2000. Algorithm: VPG.<br/>
+[2] Playing Atari with Deep Reinforcement Learning, Mnih et al, 2013. Algorithm: DQN.<br/>
+[3] Asynchronous Methods for Deep Reinforcement Learning, Mnih et al, 2016. Algorithm: A2C. <br/>
 
 And code from:
 

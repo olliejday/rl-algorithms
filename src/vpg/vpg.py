@@ -128,8 +128,6 @@ class VanillaPolicyGradients:
         """
         Constructs the symbolic operation for the policy network outputs,
             which are the parameters of the policy distribution p(a|s)
-
-        Wrapped in Keras Lambdas to build a Keras model
         """
         if self.discrete:
             # here model outputs are the logits

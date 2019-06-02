@@ -21,6 +21,11 @@ included are:
     * LunarLander-v2
     * (on /snake branch) [snake-grid-v0](https://github.com/olliejday/snake-rl)
 
+* Actor Critic
+    * RoboschoolInvertedPendulum-v1
+    * LunarLanderContinuous-v2
+    * RoboschoolHalfCheetah-v1
+
 ## Usage
 
 For each algorithm we have a template for training, running and plotting interface.
@@ -65,7 +70,7 @@ Plotting the training curves from training logs can be done:
 
 Where:
  
-`<algorithm>` is the algorithm eg. `dqn` or `vpg`.<br/>
+`<algorithm>` is the algorithm<br/>
 `<experiment_name>` is the name of the experiment (ie. the top directory storing models) eg. `dqn_lander`<br/>
 
 

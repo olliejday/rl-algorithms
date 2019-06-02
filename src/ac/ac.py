@@ -11,8 +11,6 @@ import keras.backend as keras_backend
 from src.ac.utils import ACBuffer, normalise, gaussian_log_likelihood, gather_nd
 
 
-# TODO: add to README etc.
-
 class ActorCrtic:
     def __init__(self,
                  model_fn,
@@ -42,7 +40,7 @@ class ActorCrtic:
         Parameters
         ----------
         model_fn: src.ac.models.model
-            Model to use for computing the policy, see models.py.
+            Model function to use for actor and critic, see models.py.
         env: gym.Env
             gym environment to train on.
         experiments_path: string
@@ -161,7 +159,6 @@ class ActorCrtic:
         Constructs the symbolic operation for the policy network outputs,
             which are the parameters of the policy distribution p(a|s)
 
-        Wrapped in Keras Lambdas to build a Keras model
         """
         if self.discrete:
             # here model outputs are the logits
@@ -183,7 +180,7 @@ class ActorCrtic:
 
     def setup_loss(self):
         """
-        Sets up policy gradient loss operations for the model.
+        Sets up loss operations for the actor and critic.
         """
         # approximate some useful metrics to monitor during training
         self.approx_kl = tf.reduce_mean(self.prev_logprob_ph - self.logprob_ac)

@@ -10,3 +10,5 @@ Algorithms included:
     * Using a Neural Network baseline can reduce variance and improve training
 * Deep Q-Networks (DQN)
     * Also included Double DQN variant
+* Actor Critic
+    * Vanilla A2C version
