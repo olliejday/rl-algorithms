@@ -1,0 +1,2 @@
+Model_fn: fc_small
+learning_rate: 0.005, nn_basline: True, nn_baseline_fn: <function fc_small at 0x7f9ecb4e4b70>, max_path_length: 1000,  min_timesteps_per_batch: 50000, reward_to_go: True, gamma: 0.99, normalise_advntages: True

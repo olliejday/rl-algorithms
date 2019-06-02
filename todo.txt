@@ -6,12 +6,5 @@
 * Perhaps could add actor critic from hw3
 * delete this todo.txt!!
 
-Google Colab running order:
-
-VPG
-
-* Half cheetah if doesn't work try again with other new hyper parameters set then leave it!
-
-DQN
-
-* Do pong run on google colab
+need to unzip dqn model
+need to change checkpoint path for vpg models
