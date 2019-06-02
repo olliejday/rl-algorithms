@@ -163,7 +163,8 @@ class DQN():
         if self.integer_observations:
             self.ob_placeholder = Input(shape=[dim for dim in input_shape], name="observation", dtype="uint8")
             self.next_ob_placeholder = Input(shape=[dim for dim in input_shape], name="next_ob", dtype="uint8")
-            ob_range = self.env.observation_space.high - self.env.observation_space.low
+            ob_range = np.repeat(self.env.observation_space.high -
+                                  self.env.observation_space.low, repeats=self.frame_history_len, axis=-1)
             cast_layer = Lambda(lambda x: tf.cast(x, tf.float32) / ob_range, name="cast_to_float")
             self.ob_placeholder_float = cast_layer(self.ob_placeholder)
             self.next_ob_placeholder_float = cast_layer(self.next_ob_placeholder)

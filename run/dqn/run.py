@@ -1,10 +1,10 @@
 import gym
 import os
 import argparse
+import gym_snake
 
 from src.dqn.dqn import run_model
 from src.dqn.utils import get_env
-from src.dqn.atari_wrappers import wrap_deepmind
 
 
 def run(exp_name,
@@ -40,27 +40,21 @@ def run(exp_name,
     env.close()
 
 
-def run_lander(exp_name="dqn-lander", seed=123, debug=True):
+def run_snake(exp_name="dqn-snake-{}", env_type="grid", seed=123, debug=False):
     if debug:
         print('Random seed = %d' % seed)
-    env = gym.make("LunarLander-v2")
-    env = get_env(env, seed, debug)
-    run(exp_name, env, 1, False)
 
+    exp_name = exp_name.format(env_type)
 
-def run_pong(exp_name="dqn-pong", seed=123, debug=False):
-    if debug:
-        print('Random seed = %d' % seed)
-    env = gym.make("PongNoFrameskip-v4")
+    env = gym.make("snake-{}-v0".format(env_type))
     env = get_env(env, seed, debug)
-    env = wrap_deepmind(env)
+
     run(exp_name, env, 4, True)
 
 
 if __name__ == "__main__":
     options = {}
-    options['lander'] = run_lander
-    options['pong'] = run_pong
+    options['snake'] = run_snake
 
     parser = argparse.ArgumentParser()
     parser.add_argument("experiment", choices=options.keys())

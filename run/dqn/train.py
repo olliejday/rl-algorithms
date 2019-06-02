@@ -2,11 +2,11 @@ import gym
 import os
 import tensorflow as tf
 import argparse
+import gym_snake
 
 from src.dqn.models import DQNFCModelKeras, DQNCNNModelKerasSmall
 from src.dqn.dqn import DQN
 from src.dqn.utils import DQNTrainingLogger, get_env, PiecewiseSchedule, ConstantSchedule, OptimizerSpec
-from src.dqn.atari_wrappers import wrap_deepmind
 
 
 def train(exp_name,
@@ -52,64 +52,9 @@ def train(exp_name,
     env.close()
 
 
-def train_lander(seed=123, debug=True):
-    """
-    :param seed: seed to setup system
-    :param debug: debug flag for seeding reproducibility vs performance
-    """
-    num_timesteps = 5e5
+def train_snake(env_type="grid", seed=123, debug=False):
+    assert env_type == "stacked" or env_type == "grid"
 
-    exploration = PiecewiseSchedule(
-        [
-            (0, 1),
-            (num_timesteps * 0.1, 0.02),
-        ], outside_value=0.02
-    )
-
-    lr_schedule = PiecewiseSchedule([
-        (0, 1e-3),
-        (num_timesteps / 2, 5e-4),
-        (3 * num_timesteps / 4, 1e-4),
-    ],
-        outside_value=1e-4)
-
-
-    optimizer = OptimizerSpec(
-        constructor=tf.train.AdamOptimizer,
-        lr_schedule=lr_schedule,
-        kwargs={}
-    )
-
-    # setup env and wrap in monitor
-    env = gym.make("LunarLander-v2")
-    env = get_env(env, seed, debug)
-
-    train("dqn-lander",
-          env,
-          DQNFCModelKeras,
-          optimizer,
-          exploration=exploration,
-          num_timesteps=num_timesteps,
-          replay_buffer_size=50000,
-          gamma=1.0,
-          learning_starts=1000,
-          learning_freq=1,
-          frame_history_len=1,
-          target_update_freq=3000,
-          save_every=1e5,
-          batch_size=32,
-          grad_norm_clipping=10,
-          delta=1.0,
-          double_q=True,
-          log_every_n_steps=10000,
-          integer_observations=False)
-
-
-def train_pong(seed=123, debug=False):
-    """
-    :param seed: seed to setup system
-    :param debug: debug flag for seeding reproducibility vs performance
-    """
     num_timesteps = 1e8
     # This is just a rough estimate
     num_iterations = float(num_timesteps) / 4.0
@@ -137,11 +82,10 @@ def train_pong(seed=123, debug=False):
     )
 
     # setup env and wrap in monitor
-    env = gym.make("PongNoFrameskip-v4")
+    env = gym.make("snake-{}-v0".format(env_type))
     env = get_env(env, seed, debug)
-    env = wrap_deepmind(env)
 
-    train("dqn-pong",
+    train("dqn-snake-{}".format(env_type),
           env,
           DQNCNNModelKerasSmall,
           optimizer,
@@ -150,13 +94,13 @@ def train_pong(seed=123, debug=False):
           replay_buffer_size=1000000,
           batch_size=32,
           gamma=0.99,
-          learning_starts=50000,
+          learning_starts=5e4,
           learning_freq=4,
           frame_history_len=4,
           target_update_freq=10000,
           grad_norm_clipping=10,
           delta=1.0,
-          save_every=5e5,
+          save_every=2e6,
           double_q=True,
           log_every_n_steps=10000,
           integer_observations=True)
@@ -164,8 +108,7 @@ def train_pong(seed=123, debug=False):
 
 if __name__ == "__main__":
     options = {}
-    options['lander'] = train_lander
-    options['pong'] = train_pong
+    options['snake'] = train_snake
 
     parser = argparse.ArgumentParser()
     parser.add_argument("experiment", choices=options.keys())
