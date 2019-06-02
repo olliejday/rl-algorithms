@@ -10,18 +10,18 @@ includes experiments on environments to show performance.
 Example experiments (training code and parameters, trained models, logs and plots from training) 
 included are:
 
-* VPG
+* Vanilla Policy Gradients (VPG)
     * CartPole-v0
     * RoboschoolInvertedPendulum-v1
     * LunarLanderContinuous-v2
     * RoboschoolHalfCheetah-v1
 
-* DQN
+* Deep Q-Networks (DQN)
     * PongNoFrameskip-v4 (note to run the Pong model, need to first unzip it)
     * LunarLander-v2
     * (on /snake branch) [snake-grid-v0](https://github.com/olliejday/snake-rl)
 
-* Actor Critic
+* Actor Critic (A2C)
     * RoboschoolInvertedPendulum-v1
     * LunarLanderContinuous-v2
     * RoboschoolHalfCheetah-v1
