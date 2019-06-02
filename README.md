@@ -13,6 +13,12 @@ See src/README.md for implementation details.
 
 See run/README.md for details of how to run and some example experiments.
 
+## Example
+
+Here is an example run of DQN on [snake-grid-v0](https://github.com/olliejday/snake-rl):
+
+![Snake gif](media/dqn-snake.gif)
+
 ## Dependencies
 
 Install dependencies for this project.

@@ -375,6 +375,8 @@ def run_model(env, fpath, frame_history_len, integer_observations,
 
         done = False
         obs = env.reset()
+        env.render()
+        input()
         rwd = 0
         while not done:
             # store the latest observation
