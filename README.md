@@ -17,3 +17,14 @@ Install dependencies for this project.
 cd rl-algorithms
 pip3 install -r requirements.txt
 ```
+
+## Sources:
+
+This repo is built on research work:
+
+[1] Policy Gradient Methods for Reinforcement Learning with Function Approximation, Sutton et al, 2000. <br/>
+[2] Playing Atari with Deep Reinforcement Learning, Mnih et al, 2013.<br/>
+
+And code from:
+
+[3] [UC Berkeley CS294-112 Assignments](https://github.com/berkeleydeeprlcourse/homework)

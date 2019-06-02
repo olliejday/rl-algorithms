@@ -5,6 +5,22 @@
 Here is example code to run the algorithms on OpenAI Gym environments. Also
 includes experiments on environments to show performance.
 
+## Examples
+
+Example experiments (training code and parameters, trained models, logs and plots from training) 
+included are:
+
+* VPG
+    * CartPole-v0
+    * RoboschoolInvertedPendulum-v1
+    * LunarLanderContinuous-v2
+    * RoboschoolHalfCheetah-v1
+
+* DQN
+    * PongNoFrameskip-v4 (note to run the Pong model, need to first unzip it)
+    * LunarLander-v2
+    * (on /snake branch) [snake-grid-v0](https://github.com/olliejday/snake-rl)
+
 ## Usage
 
 For each algorithm we have a template for training, running and plotting interface.

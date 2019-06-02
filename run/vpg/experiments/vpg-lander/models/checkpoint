@@ -1,2 +1,2 @@
-model_checkpoint_path: "/home/oliver/Projects/ai/rl-algorithms/run/vpg/experiments/vpg-lander/models/model-4042419"
-all_model_checkpoint_paths: "/home/oliver/Projects/ai/rl-algorithms/run/vpg/experiments/vpg-lander/models/model-4042419"
+model_checkpoint_path: "model-4042419"
+all_model_checkpoint_paths: "model-4042419"

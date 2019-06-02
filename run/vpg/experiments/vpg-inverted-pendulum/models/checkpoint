@@ -1,2 +1,2 @@
-model_checkpoint_path: "/home/oliver/Projects/ai/rl-algorithms/run/vpg/experiments/vpg-inverted-pendulum/models/model-66645"
-all_model_checkpoint_paths: "/home/oliver/Projects/ai/rl-algorithms/run/vpg/experiments/vpg-inverted-pendulum/models/model-66645"
+model_checkpoint_path: "model-66645"
+all_model_checkpoint_paths: "model-66645"
