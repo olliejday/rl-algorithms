@@ -11,6 +11,8 @@ import keras.backend as keras_backend
 from src.ac.utils import ACBuffer, normalise, gaussian_log_likelihood, gather_nd
 
 
+# TODO: add to README etc.
+
 class ActorCrtic:
     def __init__(self,
                  model_fn,

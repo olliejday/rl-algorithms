@@ -42,7 +42,7 @@ def train(env, exp_name, model_fn, n_iter=100, save_every=25, **kwargs):
         ac.update_parameters(obs, next_obs, rwds, terminals, acs)
         approx_entropy, approx_kl = ac.training_metrics(obs, acs, logprobs)
 
-        training_logger.log(itr, [sum(r) for r in rwds], [len(r) for r in rwds], approx_entropy, approx_kl)
+        training_logger.log(itr, [sum(r) for r in buffer.rwds], [len(r) for r in buffer.rwds], approx_entropy, approx_kl)
 
         if itr % save_every == 0:
             ac.save_model(training_logger.timesteps)
@@ -54,8 +54,9 @@ def train_cartpole(seed=123, debug=True, exp_name="ac-cartpole"):
     env = gym.make("CartPole-v0")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    train(env, exp_name, fc, min_timesteps_per_batch=2500,
-          learning_rate=0.01, n_iter=30, render_every=1000)
+    train(env, exp_name, fc, min_timesteps_per_batch=2000,
+          n_iter=30, render_every=1000, num_target_updates=10,
+          num_grad_steps_per_target_update=10)
 
 
 def train_inverted_pendulum(seed=123, debug=True, exp_name="ac-inverted-pendulum"):
