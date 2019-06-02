@@ -1,6 +1,7 @@
 import gym
 import os
 import argparse
+import roboschool
 
 from src.vpg.vpg import run_model
 from src.vpg.models import fc_small, cnn_small
@@ -39,7 +40,6 @@ def run_cartpole(exp_name="vpg-cartpole", seed=123, debug=True):
 
 
 def run_inverted_pendulum(exp_name="vpg-inverted-pendulum", seed=123, debug=True):
-    import roboschool
     env = gym.make("RoboschoolInvertedPendulum-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
@@ -53,18 +53,18 @@ def run_lander(exp_name="vpg-lander", seed=123, debug=True):
     run(env, exp_name, fc_small, discrete=False)
 
 
-def run_pong(exp_name="vpg-pong", seed=123, debug=False):
-    env = gym.make("Pong-v0")
+def run_half_cheetah(exp_name="vpg-half-cheetah", seed=123, debug=False):
+    env = gym.make("RoboschoolHalfCheetah-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    run(env, exp_name, cnn_small, discrete=True)
+    run(env, exp_name, fc_small, discrete=False)
 
 if __name__ == "__main__":
     options = {}
     options['lander'] = run_lander
     options['inverted-pendulum'] = run_inverted_pendulum
     options['cartpole'] = run_cartpole
-    options['pong'] = run_pong
+    options['half-cheetah'] = run_half_cheetah
 
 
     parser = argparse.ArgumentParser()
