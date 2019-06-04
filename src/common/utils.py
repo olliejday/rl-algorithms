@@ -58,6 +58,7 @@ def plot_training_curves(log_path, save_to=""):
     plt.title("Training Curves")
     plt.ylabel("Return")
     plt.xlabel("Timesteps")
+    plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
     plt.legend()
     if save_to != "":
         plt.savefig(save_to)
