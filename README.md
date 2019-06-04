@@ -35,3 +35,8 @@ This repo is built on research work:
 And code from:
 
 [4] [UC Berkeley CS294-112 Assignments](https://github.com/berkeleydeeprlcourse/homework)
+
+# TODO
+
+* Add multiple random seeds on training and running calls, adjust plotting
+to plot mean and std over random seeds
