@@ -38,5 +38,7 @@ And code from:
 
 # TODO
 
-* Add multiple random seeds on training and running calls, adjust plotting
-to plot mean and std over random seeds
+* Add multiple random seeds on training and running calls
+* Adjust plotting to plot mean and std over random seeds and to be able 
+to plot multiple different algorithms on one plot to compare
+* Factor training logger out into common and pass things to log as dict or list
