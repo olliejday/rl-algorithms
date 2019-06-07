@@ -35,7 +35,7 @@ class DQN():
             double_q=True,
             log_every_n_steps=1e5,
             integer_observations=True,
-            render=False,):
+            render=False, ):
         """
         Run Deep Q-learning algorithm.
 
@@ -137,19 +137,27 @@ class DQN():
         """
         For printing the parameters of an experiment to logs.
         """
-
-        to_str = "batch_size: {}, gamma: {}, learning_starts: {}, learning_freq: {}, " \
-                 "frame_history_len: {}, target_update_freq: {}, grad_norm_clipping: {}, "
-        "double_q: {}, replay_buffer_size: {}, target_update_freq: {}".format(self.batch_size,
-                                                                              self.gamma,
-                                                                              self.learning_starts,
-                                                                              self.learning_freq,
-                                                                              self.frame_history_len,
-                                                                              self.target_update_freq,
-                                                                              self.grad_norm_clipping,
-                                                                              self.double_q,
-                                                                              self.replay_buffer_size,
-                                                                              self.target_update_freq)
+        to_str = """
+        batch_size: {}, 
+        gamma: {}, 
+        learning_starts: {}, 
+        learning_freq: {},
+        frame_history_len: {}, 
+        target_update_freq: {}, 
+        grad_norm_clipping: {}, 
+        double_q: {}, 
+        replay_buffer_size: {}, 
+        target_update_freq: {}""".format(
+            self.batch_size,
+            self.gamma,
+            self.learning_starts,
+            self.learning_freq,
+            self.frame_history_len,
+            self.target_update_freq,
+            self.grad_norm_clipping,
+            self.double_q,
+            self.replay_buffer_size,
+            self.target_update_freq)
         return to_str
 
     def setup_placeholders(self):
@@ -230,6 +238,7 @@ class DQN():
         # update_target_fn will be called periodically to copy Q network to target Q network
         def update_target_fn():
             self.target_model.set_weights(self.q_model.get_weights())
+
         self.update_target_fn = update_target_fn
 
     def setup_replay_buffer(self):
@@ -263,6 +272,7 @@ class DQN():
         Take one step in the environment.
         Epsilon greedy exploration
         """
+
         # store the latest observation
         idx = self.replay_buffer.store_frame(self.last_obs)
 
@@ -359,7 +369,7 @@ class DQN():
 
 
 def run_model(env, fpath, frame_history_len, integer_observations,
-              replay_buffer_size=1000000, n_episodes=3, sleep=0.01):
+              replay_buffer_size=10000, n_episodes=3, sleep=0.01):
     """
     Run a saved, trained model.
     :param env: environment to run in
@@ -372,7 +382,6 @@ def run_model(env, fpath, frame_history_len, integer_observations,
     """
     q_model = load_model(fpath, custom_objects={'tf': tf})
     replay_buffer = DQNReplayBuffer(replay_buffer_size, frame_history_len, integer_observations)
-
     for i in range(n_episodes):
 
         done = False

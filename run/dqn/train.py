@@ -141,7 +141,7 @@ def train_pong(seed=123, debug=False):
     env = get_env(env, seed, debug)
     env = wrap_deepmind(env)
 
-    train("dqn-pong",
+    train("dqn-pong1",
           env,
           DQNCNNModelKerasSmall,
           optimizer,
