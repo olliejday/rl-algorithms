@@ -41,14 +41,6 @@ def run(exp_name,
     env.close()
 
 
-def run_cartpole(exp_name="dqn-cartpole", seed=153, debug=True):
-    if debug:
-        print('Random seed = %d' % seed)
-    env = gym.make("CartPole-v1")
-    env = get_env(env, seed, debug)
-    run(exp_name, env, DQNFCModelKeras, seed=seed, frame_history_len=1, integer_observations=False)
-
-
 def run_lander(exp_name="dqn-lander", seed=123, debug=True):
     if debug:
         print('Random seed = %d' % seed)
@@ -68,7 +60,6 @@ def run_pong(exp_name="dqn-pong", seed=123, debug=False):
 
 if __name__ == "__main__":
     options = {}
-    options['cartpole'] = run_cartpole
     options['lander'] = run_lander
     options['pong'] = run_pong
 

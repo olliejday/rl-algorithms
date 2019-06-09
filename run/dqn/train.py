@@ -129,52 +129,6 @@ def _train(exp_name,
     env.close()
 
 
-def train_cartpole(seed=123, debug=True):
-    """
-    :param seed: seed to setup system
-    :param debug: debug flag for seeding reproducibility vs performance
-    """
-    num_timesteps = 1e5
-
-    exploration = PiecewiseSchedule(
-        [
-            (0, 1),
-            (num_timesteps * 0.15, 0.02),
-        ], outside_value=0.02
-    )
-
-    lr_schedule = ConstantSchedule(1e-3)
-
-
-    optimizer = OptimizerSpec(
-        constructor=tf.train.AdamOptimizer,
-        lr_schedule=lr_schedule,
-        kwargs={}
-    )
-
-    train("dqn-cartpole",
-          "CartPole-v1",
-          DQNFCModelKeras,
-          optimizer,
-          seed=seed,
-          debug=debug,
-          exploration=exploration,
-          num_timesteps=num_timesteps,
-          replay_buffer_size=50000,
-          gamma=1.0,
-          learning_starts=1000,
-          learning_freq=1,
-          frame_history_len=1,
-          target_update_freq=3000,
-          save_every=1e5,
-          batch_size=32,
-          grad_norm_clipping=10,
-          delta=1.0,
-          double_q=True,
-          log_every_n_steps=10000,
-          integer_observations=False)
-
-
 def train_lander(seed=123, debug=True):
     """
     :param seed: seed to setup system
@@ -284,7 +238,6 @@ def train_pong(seed=123, debug=False):
 
 if __name__ == "__main__":
     options = {}
-    options['cartpole'] = train_cartpole
     options['lander'] = train_lander
     options['pong'] = train_pong
 

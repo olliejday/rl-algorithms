@@ -337,7 +337,7 @@ def get_env(env, seed, debug):
     set_global_seeds(seed, debug)
     env.seed(seed)
 
-    expt_dir = '/tmp/dqn_snake/'
+    expt_dir = '/tmp/dqn_{}/'.format(seed)
     env = wrappers.Monitor(env, expt_dir, force=True)
 
     return env
