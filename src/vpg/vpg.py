@@ -1,15 +1,10 @@
-"""
-Uses code from UC Berkeley CS294 Deep Reinforcement Learning
-"""
-
 import tensorflow as tf
 import numpy as np
 import time
 import os
 
-from src.vpg.utils import GradientBatchTrainer, normalise
-from src.common.utils import PGBuffer
-from src.vpg.models import DiscretePolicy, ContinuousPolicy
+from src.vpg.utils import GradientBatchTrainer, normalise, VPGBuffer
+from src.common.models import DiscretePolicy, ContinuousPolicy
 
 
 class VanillaPolicyGradients:
@@ -34,10 +29,10 @@ class VanillaPolicyGradients:
 
         Parameters
         ----------
-        hidden_layer_sizes: list
-            List of ints for the number of units to have in the hidden layers
         env: gym.Env
             gym environment to train on.
+        hidden_layer_sizes: list
+            List of ints for the number of units to have in the hidden layers
         experiments_path: string
             path to save models to during training
         discrete: bool
@@ -173,7 +168,6 @@ class VanillaPolicyGradients:
         self.init_tf()
 
     def init_tf(self):
-        # to change tf Session config, see utils.set_keras_session()
         self.sess = tf.keras.backend.get_session()
         self.sess.run(tf.global_variables_initializer())
 
@@ -203,7 +197,7 @@ class VanillaPolicyGradients:
         Collect paths until we have enough timesteps.
         Returns VPGBuffer() of experience.
         """
-        buffer = PGBuffer()
+        buffer = VPGBuffer()
         while True:
             animate_this_episode = (buffer.length == -1 and itr % self.render_every == 0)
             self.sample_trajectory(buffer, animate_this_episode)
@@ -370,7 +364,7 @@ def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):
     vpg.load_model(model_path)
 
     for i in range(n_episodes):
-        buffer = PGBuffer()
+        buffer = VPGBuffer()
         vpg.sample_trajectory(buffer, True)
 
         print("Reward: {}".format(sum(buffer.rwds[0])))

@@ -150,19 +150,3 @@ class ACTrainingLogger:
 
         if self.do_plot:
             plot_training_curves(self.log_path, save_to=self.plot_path)
-
-
-def gaussian_log_likelihood(x, mu, log_std):
-    """
-    Computes the log probability of x under a Gaussian with mean mu and log_std
-    """
-    std = tf.exp(log_std) + 1e-8
-    return - 0.5 * tf.reduce_sum(((mu - x) / std) ** 2 + 2 * log_std + np.log(2 * np.pi), axis=1)
-
-
-def gather_nd(x, inds, name="gather_nd"):
-    """
-    For ith row of x, gathers the inds[i] element.
-    """
-    indices = tf.stack([tf.range(tf.shape(inds)[0]), inds], axis=1)
-    return tf.gather_nd(x, indices, name=name)

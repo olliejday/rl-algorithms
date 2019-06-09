@@ -1,20 +1,18 @@
-"""
-Uses code from UC Berkeley CS294 Deep Reinforcement Learning
-"""
-
 import tensorflow as tf
 import numpy as np
 import time
 import os
 import keras.backend as keras_backend
 
-from src.ac.utils import ACBuffer, normalise, gaussian_log_likelihood, gather_nd
+from src.ac.utils import ACBuffer, normalise
+from src.common.models import DiscretePolicy, ContinuousPolicy, FC_NN
 
 
 class ActorCrtic:
     def __init__(self,
-                 model_fn,
                  env,
+                 critic_model,
+                 hidden_layer_sizes=[64, 64],
                  experiments_path="",
                  discrete=True,
                  learning_rate_actor=5e-3,
@@ -39,10 +37,13 @@ class ActorCrtic:
 
         Parameters
         ----------
-        model_fn: src.ac.models.model
-            Model function to use for actor and critic, see models.py.
         env: gym.Env
             gym environment to train on.
+        critic_model: tf.keras.Model
+            Model function to use for critic, see src.common.models.py.
+            Should be __init__ and ready to call with inputs.
+        hidden_layer_sizes: list
+            List of ints for the number of units to have in the hidden layers of the policy
         experiments_path: string
             path to save models to during training
         discrete: bool
@@ -88,11 +89,12 @@ class ActorCrtic:
             self.ac_dim = env.action_space.n
         else:
             self.ac_dim = env.action_space.shape[0]
-        self.model_fn = model_fn
+        self.critic_model = critic_model
 
         self.experiments_path = experiments_path
 
         # actor params
+        self.hidden_layer_sizes = hidden_layer_sizes
         self.learning_rate_actor = learning_rate_actor
         self.size_actor = size_actor
         self.n_layers_actor = n_layers_actor
@@ -154,29 +156,20 @@ class ActorCrtic:
         # for approx KL
         self.prev_logprob_ph = tf.placeholder(shape=[None], name="prev_logprob", dtype=tf.float32)
 
-    def setup_inference(self, model_outputs):
+    def setup_inference(self):
         """
         Constructs the symbolic operation for the policy network outputs,
             which are the parameters of the policy distribution p(a|s)
 
         """
         if self.discrete:
-            # here model outputs are the logits
-            self.sampled_ac = tf.squeeze(tf.random.categorical(model_outputs, 1, name="sampled_ac", dtype=tf.int32),
-                                         axis=1)
-            # we apply a softmax to get the log probabilities in discrete case
-            logprob = tf.nn.log_softmax(model_outputs)
-            self.logprob_ac = gather_nd(logprob, self.acs_ph, name="logprob_ac")
-            self.logprob_sampled = gather_nd(logprob, self.sampled_ac, name="logprob_sampled")
+            self.policy = DiscretePolicy(self.hidden_layer_sizes, output_size=self.ac_dim, activation="tanh")
         else:
-            sy_mean = model_outputs
-            sy_logstd = tf.get_variable(name="log_std", shape=[self.ac_dim])
-            # get sample by sampling from standard normal then transforming
-            sample_z = tf.random.normal(shape=tf.shape(sy_mean), name="continuous_sample_z")
-            self.sampled_ac = sy_mean + tf.exp(sy_logstd) * sample_z
-            # log probability
-            self.logprob_ac = gaussian_log_likelihood(self.acs_ph, sy_mean, sy_logstd)
-            self.logprob_sampled = gaussian_log_likelihood(self.sampled_ac, sy_mean, sy_logstd)
+            self.policy = ContinuousPolicy(self.hidden_layer_sizes, output_size=self.ac_dim, activation="tanh")
+
+        self.sampled_ac = self.policy(self.obs_ph)
+        self.logprob_ac = self.policy.logprob(self.obs_ph, self.acs_ph, name="logprob_ac")
+        self.logprob_sampled = self.policy.logprob(self.obs_ph, self.sampled_ac, name="logprob_sampled")
 
     def setup_loss(self):
         """
@@ -191,12 +184,7 @@ class ActorCrtic:
         self.actor_update_op = tf.train.AdamOptimizer(self.learning_rate_actor).minimize(actor_loss)
 
         # define the critic
-        self.critic_prediction = tf.squeeze(self.model_fn(
-            self.obs_ph,
-            1,
-            "nn_critic",
-            n_layers=self.n_layers_critic,
-            size=self.size_critic))
+        self.critic_prediction = self.critic_model(self.obs_ph)
         self.critic_target_ph = tf.placeholder(shape=[None], name="critic_target", dtype=tf.float32)
         critic_loss = tf.losses.mean_squared_error(self.critic_target_ph, self.critic_prediction)
         self.critic_update_op = tf.train.AdamOptimizer(self.learning_rate_critic).minimize(critic_loss)
@@ -208,24 +196,21 @@ class ActorCrtic:
         """
         self.setup_placeholders()
 
-        model_outputs = self.model_fn(self.obs_ph, self.ac_dim, "policy_fwd", self.n_layers_actor, self.size_actor)
-        self.setup_inference(model_outputs)
+        self.setup_inference()
         self.setup_loss()
         self.init_tf()
 
     def init_tf(self):
-        # to change tf Session config, see utils.set_keras_session()
         self.sess = keras_backend.get_session()
         self.sess.run(tf.global_variables_initializer())
-        self.saver = tf.train.Saver()
 
     def save_model(self, timestep):
         """
-        Save current weights.
+        Save current policy model.
         """
         if self.experiments_path != "":
-            fpath = os.path.join(self.experiments_path, "models", "model-{}".format(timestep))
-            self.saver.save(self.sess, fpath)
+            fpath = os.path.join(self.experiments_path, "models", "model-{}.h5".format(timestep))
+            self.policy.save_weights(fpath)
 
     def load_model(self, model_path=None):
         """
@@ -233,8 +218,12 @@ class ActorCrtic:
         If no path passed, loads the latest model.
         """
         if model_path is None:
-            model_path = tf.train.latest_checkpoint(os.path.join(self.experiments_path, "models"))
-        self.saver.restore(self.sess, model_path)
+            # then get latest model
+            models_dir = os.path.join(self.experiments_path, "models")
+            model_files = os.listdir(models_dir)
+            model_number = max([int(f.split(".")[0].split("-")[1]) for f in model_files])
+            model_path = os.path.join(models_dir, "model-{}.h5".format(model_number))
+        self.policy.load_weights(model_path)
 
     def sample_trajectories(self, itr):
         """

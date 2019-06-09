@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, Dense, Flatten, Lambda
 
-from src.vpg.utils import gather_nd, gaussian_log_likelihood
+from src.common.utils import gather_nd, gaussian_log_likelihood
 
 
 class FC_NN(tf.keras.Model):

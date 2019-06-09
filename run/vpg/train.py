@@ -1,13 +1,12 @@
 import gym
 import os
 import argparse
-import roboschool
 import time
 import numpy as np
 from multiprocessing import Process
 
 from src.vpg.vpg import VanillaPolicyGradients
-from src.vpg.models import FC_NN
+from src.common.models import FC_NN
 from src.common.utils import set_global_seeds, TrainingLogger
 
 
