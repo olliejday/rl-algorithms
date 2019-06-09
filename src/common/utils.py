@@ -31,33 +31,42 @@ def set_global_seeds(seed, debug):
         tf.keras.backend.set_session(sess)
 
 
-def plot_training_curves(experiment_paths, save_to=""):
+def plot_training_curves(experiments, save_to="", title="Training Curves"):
     """
 
-    :param experiment_paths: a list of paths to logs.txt to plot
+    :param experiments: a list of paths to experiment directories to plot.
+    An experiment directory is expected to have experiment_dir/1/logs/logs.txt, experiment_dir/2/logs/logs.txt, ...
+    where 1, 2, ... are the seeds run for that experiment that will be averaged over
     :param save: if True saves to `experiments_dir`/Figure.png
     :return:
     """
-    data = []
-    timesteps = []
-    for exp_path in experiment_paths:
-        df = pd.read_csv(exp_path, sep=", ", engine="python", index_col=False)
-        # average returns
-        data.append(df["MeanReturn"].values)
-        # average timesteps since each worker may have different numbers
-        timesteps.append(df["Timesteps"].values)
 
-    mean_return = np.mean(data, axis=0)
-    std_return = np.std(data, axis=0)
-    timesteps = np.mean(timesteps, axis=0)
-    plt.plot(timesteps, mean_return, label="Mean Return", color="tomato")
-    plt.fill_between(timesteps, mean_return - std_return, mean_return + std_return,
-                     alpha=0.3, label="Std Return", color="tomato")
-    plt.title("Training Curves")
-    plt.ylabel("Return")
+    for experiment in experiments:
+        # average over the experiment seeds
+        data = []
+        timesteps = []
+        seeds = os.listdir(experiment)
+        for seed in seeds:
+            log_path = os.path.join(experiment, str(seed), "logs", "logs.txt")
+            df = pd.read_csv(log_path, sep=", ", engine="python", index_col=False)
+            # average returns
+            data.append(df["MeanReturn"].values)
+            # average timesteps since each worker may have different numbers
+            timesteps.append(df["Timesteps"].values)
+        # plot this experiment's averaged data
+        mean_return = np.mean(data, axis=0)
+        std_return = np.std(data, axis=0)
+        timesteps = np.mean(timesteps, axis=0)
+        plt.plot(timesteps, mean_return, label="Mean Return", color="tomato")
+        plt.fill_between(timesteps, mean_return - std_return, mean_return + std_return,
+                         alpha=0.3, label="Std Return", color="tomato")
+
+    plt.title(title)
+    plt.ylabel("Mean Episode Return")
     plt.xlabel("Timesteps")
     plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
     plt.legend()
+
     if save_to != "":
         plt.savefig(save_to)
     plt.show()

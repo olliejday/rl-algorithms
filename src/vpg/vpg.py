@@ -98,6 +98,7 @@ class VanillaPolicyGradients:
         """
         to_string = """
         learning_rate: {}
+        hidden_layer_size: {}
         nn_basline: {}
         max_path_length: {}
         min_timesteps_per_batch: {}
@@ -105,6 +106,7 @@ class VanillaPolicyGradients:
         gamma: {}
         normalise_advntages: {}""".format(
             self.learning_rate,
+            self.hidden_layer_sizes,
             self.nn_baseline,
             self.max_path_length,
             self.min_timesteps_per_batch,

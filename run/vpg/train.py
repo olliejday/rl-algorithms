@@ -119,7 +119,7 @@ def train_inverted_pendulum(n_experiments=3, seed=123, debug=True, exp_name="vpg
     nn_baseline = FC_NN([64, 64], 1)
     train("RoboschoolInvertedPendulum-v1", exp_name, n_experiments, seed=seed, debug=debug,
           nn_baseline=nn_baseline, min_timesteps_per_batch=2500,
-          discrete=False, learning_rate=0.01, n_iter=100, gamma=0.9, render_every=1000, save_every=35)
+          discrete=False, learning_rate=0.003, n_iter=100, gamma=0.9, render_every=1000, save_every=90)
 
 
 def train_lander(n_experiments=3, seed=123, debug=False, exp_name="vpg-lander"):

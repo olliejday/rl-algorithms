@@ -37,7 +37,7 @@ def run_cartpole(exp_name="vpg-cartpole", seed=123, debug=True):
     run(env, exp_name, seed, discrete=True)
 
 
-def run_inverted_pendulum(exp_name="vpg-inverted-pendulum", seed=123, debug=True):
+def run_inverted_pendulum(exp_name="vpg-inverted-pendulum1", seed=123, debug=True):
     env = gym.make("RoboschoolInvertedPendulum-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)

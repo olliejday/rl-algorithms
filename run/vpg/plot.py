@@ -15,9 +15,7 @@ def plot_experiment(exp_name, save):
     if save:
         save_to = os.path.join(experiments_dir, "Figure.png")
 
-    experiments_paths = [os.path.join(experiments_dir, log, "logs", "logs.txt") for log in os.listdir(experiments_dir)]
-
-    plot_training_curves(experiments_paths, save_to=save_to)
+    plot_training_curves([experiments_dir], save_to=save_to, title="Training Curves {}".format(exp_name))
 
 
 if __name__ == "__main__":
