@@ -12,12 +12,13 @@ from src.common.utils import set_global_seeds, TrainingLogger
 
 def train(env_name, exp_name, n_experiments, seed=123, debug=True, n_iter=100, save_every=25, **kwargs):
     """
-    General training setup, just an interface to call _train() for each seed in parallel.
+        General training setup, just an interface to call _train() for each seed in parallel.
 
     :param env_name: Environment name to train on
     :param exp_name: Experiment name to save logs to
     :param n_experiments: number of different seeds to run
     :param seed: Seed to run for this experiment
+    :param debug: Debug flag for training (whether to be more reproducible at expense of computation)
     :param n_iter: number of iterations to train for
     :param save_every: number of iterations to save models at
     :param kwargs: arguments to pass to VPG model __init__
@@ -65,8 +66,7 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
                                  **kwargs)
 
     log_cols = ["Iteration", "StdReturn", "MaxReturn", "MinReturn", "EpLenMean", "EpLenStd", "Entropy", "KL"]
-    training_logger = TrainingLogger(experiments_path, log_cols,
-                                     config=[str(vpg)])
+    training_logger = TrainingLogger(experiments_path, log_cols, config=[str(vpg)])
 
     vpg.setup_graph()
 

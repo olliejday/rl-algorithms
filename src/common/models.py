@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, Dense, Flatten, Lambda
+from tensorflow.keras.layers import Dense, Flatten, Lambda
 
 from src.common.utils import gather_nd, gaussian_log_likelihood
 

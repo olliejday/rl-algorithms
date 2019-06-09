@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 import time
 import os
-import keras.backend as keras_backend
 
 from src.ac.utils import ACBuffer, normalise
 from src.common.models import DiscretePolicy, ContinuousPolicy, FC_NN
@@ -11,7 +10,7 @@ from src.common.models import DiscretePolicy, ContinuousPolicy, FC_NN
 class ActorCrtic:
     def __init__(self,
                  env,
-                 critic_model,
+                 critic_model_class=FC_NN,
                  hidden_layer_sizes=[64, 64],
                  experiments_path="",
                  discrete=True,
@@ -39,11 +38,10 @@ class ActorCrtic:
         ----------
         env: gym.Env
             gym environment to train on.
-        critic_model: tf.keras.Model
-            Model function to use for critic, see src.common.models.py.
-            Should be __init__ and ready to call with inputs.
+        critic_model_class: tf.keras.Model
+            Model class to use for critic, should subclass tf.keras.Model see src.common.models.py.
         hidden_layer_sizes: list
-            List of ints for the number of units to have in the hidden layers of the policy
+            List of ints for the number of units to have in the hidden layers of the policy and the critic
         experiments_path: string
             path to save models to during training
         discrete: bool
@@ -89,7 +87,7 @@ class ActorCrtic:
             self.ac_dim = env.action_space.n
         else:
             self.ac_dim = env.action_space.shape[0]
-        self.critic_model = critic_model
+        self.critic_model_class = critic_model_class
 
         self.experiments_path = experiments_path
 
@@ -124,25 +122,36 @@ class ActorCrtic:
         """
         Define string behaviour as key parameters for logging
         """
-        to_string = "learning_rate_actor: {}, learning_rate_critic: {}, " \
-                    "size_actor: {}, size_critic: {}, " \
-                    "n_layers_actor: {}, n_layers_critic: {}, " \
-                    "num_grad_steps_per_target_update: {}, " \
-                    "num_target_updates: {}" \
-                    "max_path_length: {},  " \
-                    "min_timesteps_per_batch: {}, " \
-                    "reward_to_go: {}, " \
-                    "gamma: {}, " \
-                    "normalise_advntages: {}".format(self.learning_rate_actor, self.learning_rate_critic,
-                                                     self.size_actor, self.size_critic,
-                                                     self.n_layers_actor, self.n_layers_critic,
-                                                     self.num_grad_steps_per_target_update,
-                                                     self.num_target_updates,
-                                                     self.max_path_length,
-                                                     self.min_timesteps_per_batch,
-                                                     self.reward_to_go,
-                                                     self.gamma,
-                                                     self.normalise_advantages)
+        to_string = """
+                    critic_model_class: {}
+                    hidden_layer_sizes: {}
+                    discrete: {}
+                    learning_rate_actor: {}
+                    learning_rate_critic: {}
+                    size_actor: {}, size_critic: {}
+                    n_layers_actor: {}, n_layers_critic: {} 
+                    num_grad_steps_per_target_update: {}
+                    num_target_updates: {}
+                    max_path_length: {}
+                    min_timesteps_per_batch: {}
+                    reward_to_go: {}
+                    gamma: {}
+                    normalise_advntages: {}""".format(self.critic_model_class,
+                                                      self.hidden_layer_sizes,
+                                                      self.discrete,
+                                                      self.learning_rate_actor,
+                                                      self.learning_rate_critic,
+                                                      self.size_actor,
+                                                      self.size_critic,
+                                                      self.n_layers_actor,
+                                                      self.n_layers_critic,
+                                                      self.num_grad_steps_per_target_update,
+                                                      self.num_target_updates,
+                                                      self.max_path_length,
+                                                      self.min_timesteps_per_batch,
+                                                      self.reward_to_go,
+                                                      self.gamma,
+                                                      self.normalise_advantages)
         return to_string
 
     def setup_placeholders(self):
@@ -184,6 +193,7 @@ class ActorCrtic:
         self.actor_update_op = tf.train.AdamOptimizer(self.learning_rate_actor).minimize(actor_loss)
 
         # define the critic
+        self.critic_model = self.critic_model_class(self.hidden_layer_sizes, 1)
         self.critic_prediction = self.critic_model(self.obs_ph)
         self.critic_target_ph = tf.placeholder(shape=[None], name="critic_target", dtype=tf.float32)
         critic_loss = tf.losses.mean_squared_error(self.critic_target_ph, self.critic_prediction)
@@ -201,7 +211,7 @@ class ActorCrtic:
         self.init_tf()
 
     def init_tf(self):
-        self.sess = keras_backend.get_session()
+        self.sess = tf.keras.backend.get_session()
         self.sess.run(tf.global_variables_initializer())
 
     def save_model(self, timestep):
@@ -351,7 +361,7 @@ class ActorCrtic:
         return approx_entropy, approx_kl
 
 
-def run_model(env, model_fn, experiments_path, model_path=None, n_episodes=3, **kwargs):
+def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):
     """
     Run a saved, trained model.
     :param env: environment to run in
@@ -362,8 +372,7 @@ def run_model(env, model_fn, experiments_path, model_path=None, n_episodes=3, **
     :param **kwargs: for AC setup
     """
 
-    actrcrtc = ActorCrtic(model_fn,
-                          env,
+    actrcrtc = ActorCrtic(env,
                           experiments_path=experiments_path,
                           **kwargs)
     actrcrtc.setup_graph()

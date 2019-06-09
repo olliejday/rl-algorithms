@@ -9,7 +9,7 @@ from src.common.utils import set_global_seeds
 
 def run(env,
         exp_name,
-        seed,
+        seed=123,
         model_path=None,
         **kwargs):
     """
