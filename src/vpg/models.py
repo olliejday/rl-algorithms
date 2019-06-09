@@ -18,6 +18,7 @@ class FC_NN(tf.keras.Model):
         for hidden_units in hidden_layer_sizes:
             self.model.add(Dense(hidden_units, activation=activation))
         self.model.add(Dense(output_size, activation=None))
+        self.model.add(Lambda(lambda x: tf.squeeze(x)))
 
     def call(self, inputs):
         return self.model(inputs)

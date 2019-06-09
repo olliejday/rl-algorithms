@@ -31,7 +31,7 @@ def run(env,
 
 
 def run_cartpole(exp_name="vpg-cartpole", seed=123, debug=True):
-    env = gym.make("CartPole-v0")
+    env = gym.make("CartPole-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
     run(env, exp_name, seed, discrete=True)
