@@ -31,22 +31,17 @@ def set_global_seeds(seed, debug):
         tf.keras.backend.set_session(sess)
 
 
-def plot_training_curves(experiments_dir, save=False):
+def plot_training_curves(experiment_paths, save_to=""):
     """
 
-    :param experiments_dir: the directory containing sub directories with logs for different seeds.
-    Ie. `experiments_dir`/log_1, `experiments_dir`/log_2, `experiments_dir`/log_3
+    :param experiment_paths: a list of paths to logs.txt to plot
     :param save: if True saves to `experiments_dir`/Figure.png
     :return:
     """
-    assert os.path.exists(experiments_dir), "Invalid experiments_dir, does not exist: {}".format(experiments_dir)
-    assert len(os.listdir(experiments_dir)) > 0, "No logs found in {}".format(experiments_dir)
-
     data = []
     timesteps = []
-    for log_dir in os.listdir(experiments_dir):
-        log_path = os.path.join(experiments_dir, log_dir, "logs", "logs.txt")
-        df = pd.read_csv(log_path, sep=", ", engine="python", index_col=False)
+    for exp_path in experiment_paths:
+        df = pd.read_csv(exp_path, sep=", ", engine="python", index_col=False)
         # average returns
         data.append(df["MeanReturn"].values)
         # average timesteps since each worker may have different numbers
@@ -63,8 +58,8 @@ def plot_training_curves(experiments_dir, save=False):
     plt.xlabel("Timesteps")
     plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
     plt.legend()
-    if save:
-        plt.savefig(os.path.join(experiments_dir, "Figure.png"))
+    if save_to != "":
+        plt.savefig(save_to)
     plt.show()
 
 
@@ -139,9 +134,6 @@ class TrainingLogger:
         Note Time, Timesteps and MeanReturn are logged so need not be added (but can be under these names).
         :param config: list of strings to write in separate config log eg. hyperparameters
         """
-        # for tracking progress
-        self.timesteps = 0
-
         log_dir = os.path.join(experiments_dir, "logs")
         os.makedirs(log_dir)
         self.log_dir = log_dir

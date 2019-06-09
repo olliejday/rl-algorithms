@@ -11,7 +11,13 @@ def plot_experiment(exp_name, save):
     root_dir = os.path.dirname(os.path.realpath(__file__))
     experiments_dir = os.path.join(root_dir, "experiments", exp_name)
 
-    plot_training_curves(experiments_dir, save=save)
+    save_to = ""
+    if save:
+        save_to = os.path.join(experiments_dir, "Figure.png")
+
+    experiments_paths = [os.path.join(experiments_dir, log, "logs", "logs.txt") for log in os.listdir(experiments_dir)]
+
+    plot_training_curves(experiments_paths, save_to=save_to)
 
 
 if __name__ == "__main__":

@@ -7,17 +7,16 @@ import numpy as np
 from multiprocessing import Process
 
 from src.vpg.vpg import VanillaPolicyGradients
-from src.vpg.models import fc_small, fc_medium, cnn_small
+from src.vpg.models import FC_NN
 from src.common.utils import set_global_seeds, TrainingLogger
 
 
-def train(env_name, exp_name, model_fn, n_experiments, seed=123, debug=True, n_iter=100, save_every=25, **kwargs):
+def train(env_name, exp_name, n_experiments, seed=123, debug=True, n_iter=100, save_every=25, **kwargs):
     """
     General training setup, just an interface to call _train() for each seed in parallel.
 
     :param env_name: Environment name to train on
     :param exp_name: Experiment name to save logs to
-    :param model_fn: Model function to call to generate the policy model (see src.vpg.models)
     :param n_experiments: number of different seeds to run
     :param seed: Seed to run for this experiment
     :param n_iter: number of iterations to train for
@@ -32,10 +31,10 @@ def train(env_name, exp_name, model_fn, n_experiments, seed=123, debug=True, n_i
     processes = []
 
     for i in range(n_experiments):
-        seed = seed + 10 * i
+        seed += 10 * i
 
         def train_func():
-            _train(env_name, exp_name, model_fn, seed, debug=debug, n_iter=n_iter, save_every=save_every, **kwargs)
+            _train(env_name, exp_name, seed, debug=debug, n_iter=n_iter, save_every=save_every, **kwargs)
 
         # # Awkward hacky process runs, because Tensorflow does not like
         # # repeatedly calling train in the same thread.
@@ -50,7 +49,7 @@ def train(env_name, exp_name, model_fn, n_experiments, seed=123, debug=True, n_i
         p.join()
 
 
-def _train(env_name, exp_name, model_fn, seed, debug=True, n_iter=100, save_every=25, **kwargs):
+def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwargs):
     """
     Training function to be called for a process in parallel, same args as train()
     """
@@ -62,16 +61,17 @@ def _train(env_name, exp_name, model_fn, seed, debug=True, n_iter=100, save_ever
     root_dir = os.path.dirname(os.path.realpath(__file__))
     experiments_path = os.path.join(root_dir, "experiments", exp_name, str(seed))
 
-    vpg = VanillaPolicyGradients(model_fn,
-                                 env,
+    vpg = VanillaPolicyGradients(env,
                                  experiments_path=experiments_path,
                                  **kwargs)
 
-    log_cols = ["StdReturn", "MaxReturn", "MinReturn", "EpLenMean", "EpLenStd", "Entropy", "KL"]
+    log_cols = ["Iteration", "StdReturn", "MaxReturn", "MinReturn", "EpLenMean", "EpLenStd", "Entropy", "KL"]
     training_logger = TrainingLogger(experiments_path, log_cols,
-                                     config=["Model_fn: {}".format(model_fn.__name__), str(vpg)])
+                                     config=[str(vpg)])
 
     vpg.setup_graph()
+
+    vpg.save_model(0)
 
     timesteps = 0
 
@@ -95,6 +95,7 @@ def _train(env_name, exp_name, model_fn, seed, debug=True, n_iter=100, save_ever
         training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),
                             MeanReturn=np.mean(returns),
                             Timesteps=timesteps,
+                            Iteration=itr,
                             StdReturn=np.std(returns),
                             MaxReturn=np.max(returns),
                             MinReturn=np.min(returns),
@@ -105,33 +106,34 @@ def _train(env_name, exp_name, model_fn, seed, debug=True, n_iter=100, save_ever
                             )
 
         if itr % save_every == 0:
-            vpg.save_model(training_logger.timesteps)
+            vpg.save_model(timesteps)
 
     env.close()
 
 
 def train_cartpole(n_experiments=3, seed=123, debug=True, exp_name="vpg-cartpole"):
-    train("CartPole-v1", exp_name, fc_small, n_experiments, seed=seed, debug=debug, nn_baseline=True,
-          nn_baseline_fn=fc_small,
+    nn_baseline = FC_NN([64, 64], 1)
+    train("CartPole-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
           min_timesteps_per_batch=2500, learning_rate=0.01, n_iter=30, render_every=1000)
 
 
 def train_inverted_pendulum(n_experiments=3, seed=123, debug=True, exp_name="vpg-inverted-pendulum"):
-    train("RoboschoolInvertedPendulum-v1", exp_name, fc_small, n_experiments, seed=seed, debug=debug, nn_baseline=True,
-          nn_baseline_fn=fc_small, min_timesteps_per_batch=5000,
+    nn_baseline = FC_NN([64, 64], 1)
+    train("RoboschoolInvertedPendulum-v1", exp_name, n_experiments, seed=seed, debug=debug,
+          nn_baseline=nn_baseline, min_timesteps_per_batch=5000,
           discrete=False, learning_rate=0.01, n_iter=50, gamma=0.9, render_every=1000)
 
 
 def train_lander(n_experiments=3, seed=123, debug=False, exp_name="vpg-lander"):
-    train("LunarLanderContinuous-v2", exp_name, fc_small, n_experiments, seed=seed, debug=debug, nn_baseline=True,
-          nn_baseline_fn=fc_small,
+    nn_baseline = FC_NN([64, 64], 1)
+    train("LunarLanderContinuous-v2", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
           discrete=False, min_timesteps_per_batch=40000, learning_rate=0.005, gradient_batch_size=1000,
           render_every=1000)
 
 
 def train_half_cheetah(n_experiments=3, seed=123, debug=False, exp_name="vpg-half-cheetah"):
-    train("RoboschoolHalfCheetah-v1", exp_name, fc_small, n_experiments, seed=seed, debug=debug, nn_baseline=True,
-          nn_baseline_fn=fc_small,
+    nn_baseline = FC_NN([64, 64], 1)
+    train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
           discrete=False, min_timesteps_per_batch=50000, learning_rate=0.005, gradient_batch_size=3000,
           render_every=1000)
 
