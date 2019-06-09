@@ -41,7 +41,7 @@ def fc_medium(input_placeholder, output_size):
 
 #############
 
-from src.vpg.utils import gather_nd
+from src.vpg.utils import gather_nd, gaussian_log_likelihood
 
 
 class DiscretePolicy(tf.keras.Model):
@@ -51,7 +51,6 @@ class DiscretePolicy(tf.keras.Model):
         for hidden_units in hidden_layer_sizes:
             self.model.add(Dense(hidden_units, activation=activation))
         self.model.add(Dense(output_size, activation=None))
-        self.model.add(Lambda(lambda x: tf.squeeze(x, axis=1)))
 
     def call(self, inputs):
         x = self.model(inputs)
@@ -59,9 +58,30 @@ class DiscretePolicy(tf.keras.Model):
                                      axis=1))(x)
         return sampled_ac
 
-    def logprob(self, inputs, acs):
+    def logprob(self, inputs, acs, name="logprob"):
         # we apply a softmax to get the log probabilities in discrete case
         x = self.model(inputs)
         logprob = Lambda(lambda x: tf.nn.log_softmax(x))(x)
-        logprob_acs = Lambda(lambda x: gather_nd(logprob, x, name="logprob"))(acs)
+        logprob_acs = Lambda(lambda x: gather_nd(x, acs, name=name))(logprob)
+        return logprob_acs
+
+
+class ContinuousPolicy(tf.keras.Model):
+    def __init__(self, hidden_layer_sizes, output_size, activation="relu", **kwargs):
+        super(ContinuousPolicy, self).__init__(**kwargs)
+        self.sy_logstd = tf.get_variable(name="log_std", shape=[output_size])
+        self.model = tf.keras.Sequential()
+        for hidden_units in hidden_layer_sizes:
+            self.model.add(Dense(hidden_units, activation=activation))
+        self.model.add(Dense(output_size, activation=None))
+
+    def call(self, inputs):
+        x = self.model(inputs)
+        sampled_ac = Lambda(lambda x: x + tf.exp(self.sy_logstd) * tf.random.normal(shape=tf.shape(x)))(x)
+        return sampled_ac
+
+    def logprob(self, inputs, acs, name="logprob"):
+        # we apply a softmax to get the log probabilities in discrete case
+        x = self.model(inputs)
+        logprob_acs = Lambda(lambda x: gaussian_log_likelihood(acs, x, self.sy_logstd))(x)
         return logprob_acs

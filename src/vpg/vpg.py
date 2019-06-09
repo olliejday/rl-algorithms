@@ -7,8 +7,9 @@ import numpy as np
 import time
 import os
 
-from src.vpg.utils import GradientBatchTrainer, normalise, gaussian_log_likelihood, gather_nd
+from src.vpg.utils import GradientBatchTrainer, normalise
 from src.common.utils import PGBuffer
+from src.vpg.models import DiscretePolicy, ContinuousPolicy
 
 
 class VanillaPolicyGradients:
@@ -137,21 +138,15 @@ class VanillaPolicyGradients:
         """
         if self.discrete:
             # here model outputs are the logits
-            self.sampled_ac = tf.squeeze(tf.random.categorical(model_outputs, 1, name="sampled_ac", dtype=tf.int32),
-                                         axis=1)
-            # we apply a softmax to get the log probabilities in discrete case
-            logprob = tf.nn.log_softmax(model_outputs)
-            self.logprob_ac = gather_nd(logprob, self.acs_ph, name="logprob_ac")
-            self.logprob_sampled = gather_nd(logprob, self.sampled_ac, name="logprob_sampled")
+            policy = DiscretePolicy([64, 64], output_size=self.ac_dim, activation="tanh")
+            self.sampled_ac = policy(self.obs_ph)
+            self.logprob_ac = policy.logprob(self.obs_ph, self.acs_ph, name="logprob_ac")
+            self.logprob_sampled = policy.logprob(self.obs_ph, self.sampled_ac, name="logprob_sampled")
         else:
-            sy_mean = model_outputs
-            sy_logstd = tf.get_variable(name="log_std", shape=[self.ac_dim])
-            # get sample by sampling from standard normal then transforming
-            sample_z = tf.random.normal(shape=tf.shape(sy_mean), name="continuous_sample_z")
-            self.sampled_ac = sy_mean + tf.exp(sy_logstd) * sample_z
-            # log probability
-            self.logprob_ac = gaussian_log_likelihood(self.acs_ph, sy_mean, sy_logstd)
-            self.logprob_sampled = gaussian_log_likelihood(self.sampled_ac, sy_mean, sy_logstd)
+            policy = ContinuousPolicy([64, 64], output_size=self.ac_dim, activation="tanh")
+            self.sampled_ac = policy(self.obs_ph)
+            self.logprob_ac = policy.logprob(self.obs_ph, self.acs_ph, name="logprob_ac")
+            self.logprob_sampled = policy.logprob(self.obs_ph, self.sampled_ac, name="logprob_sampled")
 
     def setup_loss(self):
         """
