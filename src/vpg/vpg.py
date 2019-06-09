@@ -176,7 +176,6 @@ class VanillaPolicyGradients:
         # to change tf Session config, see utils.set_keras_session()
         self.sess = tf.keras.backend.get_session()
         self.sess.run(tf.global_variables_initializer())
-        self.saver = tf.train.Saver()
 
     def save_model(self, timestep):
         """
@@ -184,7 +183,6 @@ class VanillaPolicyGradients:
         """
         if self.experiments_path != "":
             fpath = os.path.join(self.experiments_path, "models", "model-{}.h5".format(timestep))
-            # self.saver.save(self.sess, fpath)
             self.policy.save_weights(fpath)
 
     def load_model(self, model_path=None):

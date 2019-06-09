@@ -6,12 +6,10 @@ import gym.spaces
 import numpy as np
 import tensorflow as tf
 import os
-import keras.backend as keras_backend
-from keras import Model
-from keras.layers import Input, Lambda
-from keras.models import load_model
+import tensorflow as tf
+from tensorflow.keras.layers import Input, Lambda
 
-from src.dqn.utils import LinearSchedule, huber_loss, get_wrapper_by_name, DQNReplayBuffer
+from src.dqn.utils import LinearSchedule, huber_loss, get_wrapper_by_name, DQNReplayBuffer, ConstantSchedule
 
 
 class DQN():
@@ -31,11 +29,11 @@ class DQN():
             grad_norm_clipping=10,
             delta=1.0,
             save_every=1e7,
-            experiments_path="",
+            experiments_dir="",
             double_q=True,
             log_every_n_steps=1e5,
             integer_observations=True,
-            render=False, ):
+            render=False):
         """
         Run Deep Q-learning algorithm.
 
@@ -45,12 +43,13 @@ class DQN():
         ----------
         env: gym.Env
             gym environment to train on.
-        model_class: src.dqn.models.Model
+        model_class: tf.keras.Model
             Model to use for computing the q function.
-            The model should be a class so that we can setup keras layer sharing, see models.py
+            The model should be a subclass of tf.keras.Model so that we can setup layer sharing, see models.py
         optimizer_spec: src.dqn.utils.OptimizerSpec
             Specifying the constructor and kwargs, as well as learning rate schedule
             for the optimizer
+            If None, we assume evaluation only (no training)
         exploration: src.dqn.utils.Schedule
             schedule for probability of chosing random action.
         replay_buffer_size: int
@@ -78,7 +77,7 @@ class DQN():
             saver a model every N timesteps
         log_every_n_steps: int
             print and save to file logs of training metrics every N timesteps
-        experiments_path: str
+        experiments_dir: str
             where to save models and logs to
         integer_observations: bool
             for replay buffer whether to store integers or floats
@@ -111,13 +110,13 @@ class DQN():
         self.delta = delta
         self.double_q = double_q
         self.save_every = save_every
-        self.experiments_path = experiments_path
+        self.experiments_dir = experiments_dir
         self.replay_buffer_size = replay_buffer_size
         self.frame_history_len = frame_history_len
 
         # make directory to save models
-        if self.experiments_path != "":
-            save_dir = os.path.join(self.experiments_path, "models")
+        if self.experiments_dir != "":
+            save_dir = os.path.join(self.experiments_dir, "models")
             if not os.path.exists(save_dir):
                 print("Made model directory: {}".format(save_dir))
                 os.makedirs(save_dir)
@@ -189,15 +188,16 @@ class DQN():
         self.learning_rate = tf.placeholder(shape=(), name="learning_rate", dtype=tf.float32)
 
     def setup_inference(self):
+        # we init the model class to setup the model. It can then be called as a function on an input placeholder to
+        # return the outputs
+        self.q_model = self.q_model_class(self.ac_dim)
         # q_op and target_q_op are the Q and target network models
-        self.q_func_ob = self.q_model_fn(self.ob_placeholder_float)
-        self.q_model = Model(self.ob_placeholder, self.q_func_ob)
-        self.q_model.summary()
+        self.q_model_ob = self.q_model(self.ob_placeholder_float)
         # handle for use in rolling out policy
-        self.q_func_next_ob = self.q_model_fn(self.next_ob_placeholder_float)
+        self.q_model_next_ob = self.q_model(self.next_ob_placeholder_float)
 
-        self.target_q_func_next_ob = self.target_model_fn(self.next_ob_placeholder_float)
-        self.target_model = Model(self.next_ob_placeholder, self.target_q_func_next_ob)
+        self.target_model = self.target_model_class(self.ac_dim)
+        self.target_model_outputs = self.target_model(self.next_ob_placeholder_float)
         self.target_q_func_vars = self.target_model.trainable_weights
 
     def setup_loss(self):
@@ -206,21 +206,21 @@ class DQN():
         """
         # Define the loss tf operation
         if self.double_q:  # double DQN, use current network to evaluate actions, max_value_action = argmax_{a'} Q_{phi}(s', a')
-            max_value_action = tf.argmax(self.q_func_next_ob, axis=1, name="max_value_action", output_type=tf.int32)
+            max_value_action = tf.argmax(self.q_model_next_ob, axis=1, name="max_value_action", output_type=tf.int32)
         else:  # vanilla DQN, use target network to evaluate actions, max_value_action = argmax_{a'} Q_{phi'}(s', a')
-            max_value_action = tf.argmax(self.target_q_func_next_ob, axis=1, name="max_value_action",
+            max_value_action = tf.argmax(self.target_model_outputs, axis=1, name="max_value_action",
                                          output_type=tf.int32)
 
         # indexing the max valued actions into the target Q values
         indices = tf.stack([tf.range(tf.shape(max_value_action)[0]), max_value_action], axis=1)
-        max_Q_value = tf.gather_nd(self.target_q_func_next_ob, indices, name="max_Q_value")
+        max_Q_value = tf.gather_nd(self.target_model_outputs, indices, name="max_Q_value")
 
         # y = r + (1 - done) * gamma * Q_{phi'}(s', max_value_action)
         target_values = self.rew_placeholder + (1 - self.done_mask_ph) * self.gamma * max_Q_value
 
         # indexing the actions into the Q values
-        indices = tf.stack([tf.range(tf.shape(self.q_func_ob)[0]), self.ac_placeholder], axis=1)
-        action_taken_Q_vals = tf.gather_nd(self.q_func_ob, indices, name="action_Q_value")
+        indices = tf.stack([tf.range(tf.shape(self.q_model_ob)[0]), self.ac_placeholder], axis=1)
+        action_taken_Q_vals = tf.gather_nd(self.q_model_ob, indices, name="action_Q_value")
 
         loss = target_values - action_taken_Q_vals
         self.total_error = tf.reduce_mean(huber_loss(loss, self.delta))
@@ -251,20 +251,16 @@ class DQN():
         Setup the model, TF graph for inference and loss.
         Call this before training.
         """
-        # we init the model class to setup the model. It can then be called as a function on an input placeholder to
-        # return the outputs
-        self.q_model_fn = self.q_model_class(self.ac_dim)
-        self.target_model_fn = self.target_model_class(self.ac_dim)
-
         self.setup_placeholders()
         self.setup_inference()
-        self.setup_loss()
+        if self.optimizer_spec is not None:
+            self.setup_loss()
         self.setup_replay_buffer()
         self.init_tf()
 
     def init_tf(self):
         # to change tf Session config, see utils.set_keras_session()
-        self.tf_sess = keras_backend.get_session()
+        self.tf_sess = tf.keras.backend.get_session()
         self.tf_sess.run(tf.global_variables_initializer())
 
     def step_env(self):
@@ -296,7 +292,7 @@ class DQN():
         # render the env
         if self.render_flag and self.render:
             self.env.render()
-            time.sleep(0.1)
+            time.sleep(0.01)
 
         # step env
         obs, reward, done, info = self.env.step(action)
@@ -308,6 +304,8 @@ class DQN():
         # store this step
         self.replay_buffer.store_effect(idx, action, reward, done)
         self.last_obs = obs
+
+        return done
 
     def update_model(self):
         """
@@ -363,48 +361,43 @@ class DQN():
         """
         Save current DQN Q-network model.
         """
-        if self.experiments_path != "":
-            fpath = os.path.join(self.experiments_path, "models", "model-{}.h5".format(self.t))
-            self.q_model.save(filepath=fpath)
+        if self.experiments_dir != "":
+            fpath = os.path.join(self.experiments_dir, "models", "model-{}.h5".format(self.t))
+            self.q_model.save_weights(fpath)
+
+    def load_model(self, model_path):
+        """
+        Load a model.
+        """
+        self.q_model.load_weights(model_path)
 
 
-def run_model(env, fpath, frame_history_len, integer_observations,
-              replay_buffer_size=10000, n_episodes=3, sleep=0.01):
+def run_model(env, model_class, model_path, n_episodes=3, sleep=0.001, **kwargs):
     """
     Run a saved, trained model.
     :param env: environment to run in
-    :param fpath: file path of model to run
-    :param frame_history_len: for replay buffer
-    :param integer_observations: for replay buffer
-    :param replay_buffer_size: for replay buffer
+    :param model_class: model class to setup DQN
+    :param model_path: path of model to load
     :param n_episodes: number of episodes to run
     :param sleep: time to sleep between steps
+    :param kwargs: for DQN()
     """
-    q_model = load_model(fpath, custom_objects={'tf': tf})
-    replay_buffer = DQNReplayBuffer(replay_buffer_size, frame_history_len, integer_observations)
+
+    dqn = DQN(env,
+              model_class,
+              optimizer_spec=None,  # None means no training
+              exploration=ConstantSchedule(0),  # No exploration
+              replay_buffer_size=1000,  # Don't need a massive buffer for evaluation
+              render=True,
+              **kwargs)
+
+    dqn.setup_graph()
+
+    dqn.load_model(model_path)
+
     for i in range(n_episodes):
-
         done = False
-        obs = env.reset()
-        rwd = 0
         while not done:
-            # store the latest observation
-            idx = replay_buffer.store_frame(obs)
-
-            # encode the current observation, [None] adds a dimension of 1 for the batch
-            encoded_observation = replay_buffer.encode_recent_observation()[None]
-            Q_values = q_model.predict(encoded_observation)
-            action = np.argmax(Q_values)
-
-            # step env
-            obs, reward, done, info = env.step(action)
-            env.render()
-
-            rwd += reward
-
-            # store this step
-            replay_buffer.store_effect(idx, action, reward, done)
-
-            time.sleep(sleep)
-
-        print("Reward: {}".format(rwd))
+            dqn.render_flag = True
+            done = dqn.step_env()
+        print("Reward: {}".format(get_wrapper_by_name(env, "Monitor").get_episode_rewards()[-1]))

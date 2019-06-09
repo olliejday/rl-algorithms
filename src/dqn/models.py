@@ -1,56 +1,37 @@
-from keras.layers import Conv2D, Dense, Flatten
-
-"""
-Note the format of these models is to use Keras as weight sharing.
-So we __init__ with the model structure, and it can then be called repeatedly on different Keras Input() or 
-TF Placeholders.
-
-Example usage, where ModelClass is one of the models here.
-
-from Keras import Input, Model
-
-# Init class
-model_fn = ModelClass(self.ac_dim)
-# Use with inputs
-input_placeholder = Input(shape=[x, y, z])
-model_outputs = model_fn(self.ob_placeholder_float)
-model = Model(self.ob_placeholder, self.q_func_ob)
-"""
-
-# Abstract class of a Model
-# Must update the __init__ with the Keras layers defining the model
-class ModelClass:
-    def __init__(self):
-        self.model_in = None
-        self.model_hidden = [None]
-        self.model_out = None
-
-    def __call__(self, ob_placeholder):
-        x = self.model_in(ob_placeholder)
-        for layer in self.model_hidden:
-            x = layer(x)
-        return self.model_out(x)
+import tensorflow as tf
+from tensorflow.keras.layers import Conv2D, Dense, Flatten
 
 
-class DQNCNNModelKerasSmall(ModelClass):
+class DQNCNNModelKerasSmall(tf.keras.Model):
     """
     Architecture inspired by original DeepMind paper, adjusted the strides and kernels to suit smaller grid sizes.
     """
 
-    def __init__(self, output_size):
-        self.model_in = Conv2D(32, kernel_size=3, strides=(1, 1), activation="relu")
-        self.model_hidden = [Conv2D(64, kernel_size=2, strides=(2, 2), activation="relu"),
-                             Conv2D(64, kernel_size=2, strides=(1, 1), activation="relu"),
-                             Flatten(), Dense(264, activation="relu")]
-        self.model_out = Dense(output_size)
+    def __init__(self, output_size, **kwargs):
+        super(DQNCNNModelKerasSmall, self).__init__(**kwargs)
+        self.model = tf.keras.Sequential()
+        self.model.add(Conv2D(32, kernel_size=3, strides=(1, 1), activation="relu"))
+        self.model.add(Conv2D(64, kernel_size=2, strides=(2, 2), activation="relu"))
+        self.model.add(Conv2D(64, kernel_size=2, strides=(1, 1), activation="relu"))
+        self.model.add(Flatten())
+        self.model.add(Dense(264, activation="relu"))
+        self.model.add(Dense(output_size))
+
+    def call(self, inputs):
+        return self.model(inputs)
 
 
-class DQNFCModelKeras(ModelClass):
+class DQNFCModelKeras(tf.keras.Model):
     """
     A simple fully connected model.
     """
 
-    def __init__(self, output_size):
-        self.model_in = Dense(64, activation="relu")
-        self.model_hidden = [Dense(64, activation="relu")]
-        self.model_out = Dense(output_size)
+    def __init__(self, output_size, **kwargs):
+        super(DQNFCModelKeras, self).__init__(**kwargs)
+        self.model = tf.keras.Sequential()
+        self.model.add(Dense(64, activation="relu"))
+        self.model.add(Dense(64, activation="relu"))
+        self.model.add(Dense(output_size))
+
+    def call(self, inputs):
+        return self.model(inputs)

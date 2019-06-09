@@ -47,7 +47,11 @@ def plot_training_curves(experiments, save_to="", title="Training Curves"):
         timesteps = []
         seeds = os.listdir(experiment)
         for seed in seeds:
-            log_path = os.path.join(experiment, str(seed), "logs", "logs.txt")
+            log_dir = os.path.join(experiment, str(seed), "logs")
+            if not os.path.isdir(log_dir):
+                # only want directories
+                continue
+            log_path = os.path.join(log_dir, "logs.txt")
             df = pd.read_csv(log_path, sep=", ", engine="python", index_col=False)
             # average returns
             data.append(df["MeanReturn"].values)

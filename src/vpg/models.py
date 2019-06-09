@@ -4,13 +4,6 @@ from tensorflow.keras.layers import Conv2D, Dense, Flatten, Lambda
 from src.vpg.utils import gather_nd, gaussian_log_likelihood
 
 
-"""
-Models here should subclass the tf.keras.Models class.
-
-We use tanh activation on fully connected layers.
-"""
-
-
 class FC_NN(tf.keras.Model):
     def __init__(self, hidden_layer_sizes, output_size, activation="relu", **kwargs):
         super(FC_NN, self).__init__(**kwargs)
@@ -22,7 +15,6 @@ class FC_NN(tf.keras.Model):
 
     def call(self, inputs):
         return self.model(inputs)
-
 
 
 class DiscretePolicy(tf.keras.Model):
