@@ -12,7 +12,7 @@ We use tanh activation on fully connected layers.
 
 
 class FC_NN(tf.keras.Model):
-    def __init__(self, hidden_layer_sizes, output_size, activation="tanh", **kwargs):
+    def __init__(self, hidden_layer_sizes, output_size, activation="relu", **kwargs):
         super(FC_NN, self).__init__(**kwargs)
         self.model = tf.keras.Sequential()
         for hidden_units in hidden_layer_sizes:
@@ -26,7 +26,7 @@ class FC_NN(tf.keras.Model):
 
 
 class DiscretePolicy(tf.keras.Model):
-    def __init__(self, hidden_layer_sizes, output_size, activation="tanh", **kwargs):
+    def __init__(self, hidden_layer_sizes, output_size, activation="relu", **kwargs):
         super(DiscretePolicy, self).__init__(**kwargs)
         self.model = tf.keras.Sequential()
         for hidden_units in hidden_layer_sizes:
@@ -48,7 +48,7 @@ class DiscretePolicy(tf.keras.Model):
 
 
 class ContinuousPolicy(tf.keras.Model):
-    def __init__(self, hidden_layer_sizes, output_size, activation="tanh", **kwargs):
+    def __init__(self, hidden_layer_sizes, output_size, activation="relu", **kwargs):
         super(ContinuousPolicy, self).__init__(**kwargs)
         self.sy_logstd = tf.get_variable(name="log_std", shape=[output_size])
         self.model = tf.keras.Sequential()
