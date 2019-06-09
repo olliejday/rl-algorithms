@@ -15,7 +15,7 @@ def plot_experiment(exp_name, save):
     if save:
         save_to = os.path.join(experiments_dir, "Figure.png")
 
-    plot_training_curves([experiments_dir], save_to=save_to, title="Training Curves {}".format(exp_name))
+    plot_training_curves({"dqn":experiments_dir}, save_to=save_to, title="Training Curves {}".format(exp_name))
 
 
 if __name__ == "__main__":

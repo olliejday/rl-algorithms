@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.style
+from matplotlib import cm
 
 
 matplotlib.style.use("seaborn")
@@ -34,14 +35,18 @@ def set_global_seeds(seed, debug):
 def plot_training_curves(experiments, save_to="", title="Training Curves"):
     """
 
-    :param experiments: a list of paths to experiment directories to plot.
+    :param experiments: a dict of
+    keys = labels,
+    values = paths to experiment directories to plot.
     An experiment directory is expected to have experiment_dir/1/logs/logs.txt, experiment_dir/2/logs/logs.txt, ...
     where 1, 2, ... are the seeds run for that experiment that will be averaged over
     :param save: if True saves to `experiments_dir`/Figure.png
     :return:
     """
+    # list of colours to plot in
+    cols = cm.tab10.colors
 
-    for experiment in experiments:
+    for i, (label, experiment) in enumerate(experiments.items()):
         # average over the experiment seeds
         data = []
         timesteps = []
@@ -61,15 +66,15 @@ def plot_training_curves(experiments, save_to="", title="Training Curves"):
         mean_return = np.mean(data, axis=0)
         std_return = np.std(data, axis=0)
         timesteps = np.mean(timesteps, axis=0)
-        plt.plot(timesteps, mean_return, label="Mean Return", color="tomato")
+        plt.plot(timesteps, mean_return, color=cols[i], label=label)
         plt.fill_between(timesteps, mean_return - std_return, mean_return + std_return,
-                         alpha=0.3, label="Std Return", color="tomato")
+                         alpha=0.3, color=cols[i])
 
     plt.title(title)
     plt.ylabel("Mean Episode Return")
     plt.xlabel("Timesteps")
     plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
-    plt.legend()
+    plt.legend(loc="best")
 
     if save_to != "":
         plt.savefig(save_to)
