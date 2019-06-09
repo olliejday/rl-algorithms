@@ -1,4 +1,4 @@
-from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Flatten
+from tensorflow.keras.layers import Conv2D, Dense, Flatten
 
 """
 Model should be a function that takes an input placeholder, input_placeholder, and dimensions of output layer, 
@@ -9,16 +9,6 @@ for example to parameterise a Gaussian or a softmax for continuous and discrete 
 
 We use tanh activation on fully connected layers.
 """
-
-def cnn_medium(input_placeholder, output_size):
-    x = Conv2D(32, (3, 3), activation="relu")(input_placeholder)
-    x = Conv2D(32, (3, 3), activation="relu")(x)
-    x = Conv2D(64, (3, 3), activation="relu")(x)
-    x = Flatten()(x)
-    x = Dense(128, activation="relu")(x)
-    x = Dense(output_size)(x)
-
-    return x
 
 
 def cnn_small(input_placeholder, output_size):

@@ -6,9 +6,9 @@ import tensorflow as tf
 import numpy as np
 import time
 import os
-import keras.backend as keras_backend
 
-from src.vpg.utils import VPGBuffer, GradientBatchTrainer, normalise, gaussian_log_likelihood, gather_nd
+from src.vpg.utils import GradientBatchTrainer, normalise, gaussian_log_likelihood, gather_nd
+from src.common.utils import PGBuffer
 
 
 class VanillaPolicyGradients:
@@ -96,21 +96,27 @@ class VanillaPolicyGradients:
                 print("Made model directory: {}".format(save_dir))
                 os.makedirs(save_dir)
 
-
     def __str__(self):
         """
         Define string behaviour as key parameters for logging
         """
-        to_string = "learning_rate: {}, nn_basline: {}, nn_baseline_fn: {}, " \
-                    "max_path_length: {},  min_timesteps_per_batch: {}, " \
-                    "reward_to_go: {}, gamma: {}, normalise_advntages: {}".format(self.learning_rate,
-                                                                                  self.nn_baseline,
-                                                                                  self.nn_baseline_fn,
-                                                                                  self.max_path_length,
-                                                                                  self.min_timesteps_per_batch,
-                                                                                  self.reward_to_go,
-                                                                                  self.gamma,
-                                                                                  self.normalise_advantages)
+        to_string = """
+        learning_rate: {}
+        nn_basline: {}
+        nn_baseline_fn: {}
+        max_path_length: {}
+        min_timesteps_per_batch: {}
+        reward_to_go: {}
+        gamma: {}
+        normalise_advntages: {}""".format(
+            self.learning_rate,
+            self.nn_baseline,
+            self.nn_baseline_fn,
+            self.max_path_length,
+            self.min_timesteps_per_batch,
+            self.reward_to_go,
+            self.gamma,
+            self.normalise_advantages)
         return to_string
 
     def setup_placeholders(self):
@@ -159,7 +165,6 @@ class VanillaPolicyGradients:
         loss = - tf.reduce_mean(self.logprob_ac * self.adv_ph, name="loss")
         self.policy_batch_trainer = GradientBatchTrainer(loss, self.learning_rate)
 
-
         if self.nn_baseline:
             self.baseline_prediction = tf.squeeze(self.nn_baseline_fn(self.obs_ph, 1))
             # size None because we have vector of length batch size
@@ -183,7 +188,7 @@ class VanillaPolicyGradients:
 
     def init_tf(self):
         # to change tf Session config, see utils.set_keras_session()
-        self.sess = keras_backend.get_session()
+        self.sess = tf.keras.backend.get_session()
         self.sess.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver()
 
@@ -209,7 +214,7 @@ class VanillaPolicyGradients:
         Collect paths until we have enough timesteps.
         Returns VPGBuffer() of experience.
         """
-        buffer = VPGBuffer()
+        buffer = PGBuffer()
         while True:
             animate_this_episode = (buffer.length == -1 and itr % self.render_every == 0)
             self.sample_trajectory(buffer, animate_this_episode)
@@ -296,11 +301,11 @@ class VanillaPolicyGradients:
             if len(baseline_preds) % self.gradient_batch_size != 0: n += 1
             for i in range(n):
                 start = i * self.gradient_batch_size
-                end = (i+1) * self.gradient_batch_size
+                end = (i + 1) * self.gradient_batch_size
 
                 # prediction from nn baseline
                 baseline_preds[start:end] = self.sess.run(self.baseline_prediction,
-                                                      feed_dict={self.obs_ph: obs[start:end]})
+                                                          feed_dict={self.obs_ph: obs[start:end]})
             # normalise to 0 mean and 1 std
             bn_norm = normalise(baseline_preds)
             # set to q mean and std
@@ -356,9 +361,9 @@ class VanillaPolicyGradients:
         #                                            self.acs_ph: acs,
         #                                            self.adv_ph: advs})
         approx_kl = self.sess.run(self.approx_kl,
-                                     feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
-                                                self.acs_ph: acs[:self.gradient_batch_size],
-                                                self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
+                                  feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
+                                             self.acs_ph: acs[:self.gradient_batch_size],
+                                             self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
         return approx_entropy, approx_kl
 
 
@@ -381,7 +386,7 @@ def run_model(env, model_fn, experiments_path, model_path=None, n_episodes=3, **
     vpg.load_model(model_path)
 
     for i in range(n_episodes):
-        buffer = VPGBuffer()
+        buffer = PGBuffer()
         vpg.sample_trajectory(buffer, True)
 
         print("Reward: {}".format(sum(buffer.rwds[0])))
