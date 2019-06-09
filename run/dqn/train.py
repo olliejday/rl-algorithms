@@ -99,8 +99,6 @@ def _train(exp_name,
     training_logger = TrainingLogger(experiments_dir, log_cols,
                                      config=["Model_fn: {}".format(model_class.__name__), str(dqn)])
 
-    dqn.save_model()
-
     while dqn.t < num_timesteps:
         dqn.step_env()
         dqn.update_model()

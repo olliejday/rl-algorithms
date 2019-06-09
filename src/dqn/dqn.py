@@ -388,7 +388,8 @@ def run_model(env, model_class, model_path, n_episodes=3, sleep=0.001, **kwargs)
               optimizer_spec=None,  # None means no training
               exploration=ConstantSchedule(0),  # No exploration
               replay_buffer_size=1000,  # Don't need a massive buffer for evaluation
-              render=True,
+              render=True,  # we want to render the evaluation
+              learning_starts=-1,  # don't need the initial random actions
               **kwargs)
 
     dqn.setup_graph()
