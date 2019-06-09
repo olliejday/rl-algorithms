@@ -71,8 +71,6 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
 
     vpg.setup_graph()
 
-    vpg.save_model(0)
-
     timesteps = 0
 
     for itr in range(1, n_iter + 1):
@@ -121,21 +119,21 @@ def train_inverted_pendulum(n_experiments=3, seed=123, debug=True, exp_name="vpg
     nn_baseline = FC_NN([64, 64], 1)
     train("RoboschoolInvertedPendulum-v1", exp_name, n_experiments, seed=seed, debug=debug,
           nn_baseline=nn_baseline, min_timesteps_per_batch=5000,
-          discrete=False, learning_rate=0.01, n_iter=50, gamma=0.9, render_every=1000)
+          discrete=False, learning_rate=0.01, n_iter=50, gamma=0.9, render_every=1000, save_every=35)
 
 
 def train_lander(n_experiments=3, seed=123, debug=False, exp_name="vpg-lander"):
     nn_baseline = FC_NN([64, 64], 1)
     train("LunarLanderContinuous-v2", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
           discrete=False, min_timesteps_per_batch=40000, learning_rate=0.005, gradient_batch_size=1000,
-          render_every=1000)
+          render_every=1000, save_every=30)
 
 
 def train_half_cheetah(n_experiments=3, seed=123, debug=False, exp_name="vpg-half-cheetah"):
     nn_baseline = FC_NN([64, 64], 1)
     train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
           discrete=False, min_timesteps_per_batch=50000, learning_rate=0.005, gradient_batch_size=3000,
-          render_every=1000)
+          render_every=1000, save_every=30)
 
 
 if __name__ == "__main__":
