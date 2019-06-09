@@ -4,6 +4,10 @@ import random
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.style
+
+
+matplotlib.style.use("seaborn")
 
 
 def set_global_seeds(seed, debug):
@@ -36,26 +40,27 @@ def plot_training_curves(experiments_dir, save=False):
     :return:
     """
     assert os.path.exists(experiments_dir), "Invalid experiments_dir, does not exist: {}".format(experiments_dir)
-    assert os.listdir(experiments_dir) > 0, "No logs found in {}".format(experiments_dir)
+    assert len(os.listdir(experiments_dir)) > 0, "No logs found in {}".format(experiments_dir)
 
     data = []
     timesteps = None
-    for log_path in os.listdir(experiments_dir):
-        df = pd.read_csv(log_path, sep=", ", engine="python")
+    for log_dir in os.listdir(experiments_dir):
+        log_path = os.path.join(experiments_dir, log_dir, "logs", "logs.txt")
+        df = pd.read_csv(log_path, sep=", ", engine="python", index_col=False)
         # append returns
-        data += df["MeanReturn"]
+        data.append(df["MeanReturn"].values)
         # should all have same timesteps so just take one of them
         timesteps = df["Timesteps"]
 
-    mean_return = np.mean(data, axis=1)
-    std_return = np.std(data, axis=1)
+    mean_return = np.mean(data, axis=0)
+    std_return = np.std(data, axis=0)
     plt.plot(timesteps, mean_return, label="Mean Return", color="tomato")
     plt.fill_between(timesteps, mean_return - std_return, mean_return + std_return,
                      alpha=0.3, label="Std Return", color="tomato")
     plt.title("Training Curves")
     plt.ylabel("Return")
     plt.xlabel("Timesteps")
-    plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+    plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
     plt.legend()
     if save:
         plt.savefig(os.path.join(experiments_dir, "Figure.png"))
@@ -137,8 +142,6 @@ class TrainingLogger:
         self.timesteps = 0
 
         log_dir = os.path.join(experiments_dir, "logs")
-        assert not os.path.exists(
-            log_dir), "Log dir %s already exists! Delete it first or use a different dir" % log_dir
         os.makedirs(log_dir)
         self.log_dir = log_dir
         self.log_path = os.path.join(self.log_dir, "logs.txt")
@@ -146,24 +149,23 @@ class TrainingLogger:
         with open(os.path.join(self.log_dir, "config.txt"), "a") as fh:
             for line in config:
                 fh.write(line + "\n")
-
         # must log these
         core_logs = ["Time", "Timesteps", "MeanReturn"]
         for l in core_logs:
             # add core logs to start of log_cols
             if l in log_cols:
-                core_logs.remove(l)
+                log_cols.remove(l)
             if l not in log_cols:
-                core_logs.insert(0, l)
+                log_cols.insert(0, l)
 
         # write log columns to file
         with open(self.log_path, "a") as fh:
-            fh.write("".join(log_cols) + "\n")
+            fh.write(", ".join(log_cols) + "\n")
 
         self.log_cols = log_cols
         # we want the print_format_string to be like
         # key1: {key1}\n key2: {key2} ...
-        self.print_format_string = "\n".join([k + ": {" + k + "}" for k in log_cols])
+        self.print_format_string = "\n" + "\n".join([k + ": {" + k + "}" for k in log_cols]) + "\n"
         # we want the log_format_string to be like
         # {key1}, {key2} ...
         self.log_format_string = ", ".join(["{" + k + "}" for k in log_cols]) + "\n"

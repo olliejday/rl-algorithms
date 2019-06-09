@@ -1,9 +1,5 @@
 import numpy as np
 import tensorflow as tf
-import matplotlib as mpl
-
-
-mpl.style.use("seaborn")
 
 
 def normalise(x):

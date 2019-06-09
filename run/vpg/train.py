@@ -24,6 +24,11 @@ def train(env_name, exp_name, model_fn, n_experiments, seed=123, debug=True, n_i
     :param save_every: number of iterations to save models at
     :param kwargs: arguments to pass to VPG model __init__
     """
+    root_dir = os.path.dirname(os.path.realpath(__file__))
+    experiments_dir = os.path.join(root_dir, "experiments", exp_name)
+    assert not os.path.exists(experiments_dir), \
+        "Experiment dir {} already exists! Delete it first or use a different dir".format(experiments_dir)
+
     processes = []
 
     for i in range(n_experiments):
@@ -55,7 +60,7 @@ def _train(env_name, exp_name, model_fn, seed, debug=True, n_iter=100, save_ever
     env.seed(seed)
 
     root_dir = os.path.dirname(os.path.realpath(__file__))
-    experiments_path = os.path.join(root_dir, "experiments", exp_name)
+    experiments_path = os.path.join(root_dir, "experiments", exp_name, str(seed))
 
     vpg = VanillaPolicyGradients(model_fn,
                                  env,
@@ -67,6 +72,8 @@ def _train(env_name, exp_name, model_fn, seed, debug=True, n_iter=100, save_ever
                                      config=["Model_fn: {}".format(model_fn.__name__), str(vpg)])
 
     vpg.setup_graph()
+
+    vpg.save_model(0)
 
     timesteps = 0
 
@@ -106,26 +113,26 @@ def _train(env_name, exp_name, model_fn, seed, debug=True, n_iter=100, save_ever
 
 
 def train_cartpole(n_experiments=3, seed=123, debug=True, exp_name="vpg-cartpole"):
-    train("Cartpole-v2", exp_name, fc_small, seed, n_experiments, debug=debug, nn_baseline=True,
+    train("CartPole-v1", exp_name, fc_small, n_experiments, seed=seed, debug=debug, nn_baseline=True,
           nn_baseline_fn=fc_small,
           min_timesteps_per_batch=2500, learning_rate=0.01, n_iter=30, render_every=1000)
 
 
 def train_inverted_pendulum(n_experiments=3, seed=123, debug=True, exp_name="vpg-inverted-pendulum"):
-    train("RoboschoolInvertedPendulum-v1", exp_name, fc_small, seed, n_experiments, debug=debug, nn_baseline=True,
+    train("RoboschoolInvertedPendulum-v1", exp_name, fc_small, n_experiments, seed=seed, debug=debug, nn_baseline=True,
           nn_baseline_fn=fc_small, min_timesteps_per_batch=2500,
           discrete=False, learning_rate=0.05, n_iter=30, gamma=0.9, render_every=1000)
 
 
 def train_lander(n_experiments=3, seed=123, debug=False, exp_name="vpg-lander"):
-    train("LunarLanderContinuous-v2", exp_name, fc_small, seed, n_experiments, debug=debug, nn_baseline=True,
+    train("LunarLanderContinuous-v2", exp_name, fc_small, n_experiments, seed=seed, debug=debug, nn_baseline=True,
           nn_baseline_fn=fc_small,
           discrete=False, min_timesteps_per_batch=40000, learning_rate=0.005, gradient_batch_size=1000,
           render_every=1000)
 
 
 def train_half_cheetah(n_experiments=3, seed=123, debug=False, exp_name="vpg-half-cheetah"):
-    train("RoboschoolHalfCheetah-v1", exp_name, fc_small, seed, n_experiments, debug=debug, nn_baseline=True,
+    train("RoboschoolHalfCheetah-v1", exp_name, fc_small, n_experiments, seed=seed, debug=debug, nn_baseline=True,
           nn_baseline_fn=fc_small,
           discrete=False, min_timesteps_per_batch=50000, learning_rate=0.005, gradient_batch_size=3000,
           render_every=1000)

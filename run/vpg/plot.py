@@ -9,17 +9,9 @@ def plot_experiment(exp_name, save):
     :param exp_name: experiment name to plot
     """
     root_dir = os.path.dirname(os.path.realpath(__file__))
-    experiments_path = os.path.join(root_dir, "experiments/{}/logs".format(exp_name))
-    log_path = os.path.join(experiments_path, "logs.txt")
+    experiments_dir = os.path.join(root_dir, "experiments", exp_name)
 
-    assert os.path.exists(log_path), "Invalid experiment name, logs do not exist for: {}, at: {}".format(exp_name,
-                                                                                                         log_path)
-
-    save_to = ""
-    if save:
-        save_to = os.path.join(experiments_path, "figure.png")
-
-    plot_training_curves(log_path, save_to=save_to)
+    plot_training_curves(experiments_dir, save=save)
 
 
 if __name__ == "__main__":

@@ -357,9 +357,6 @@ class VanillaPolicyGradients:
                                                    self.adv_ph: advs},
                                         batch_size=self.gradient_batch_size,
                                         sess=self.sess)
-        # self.sess.run(self.update_op, feed_dict={self.obs_ph: obs,
-        #                                            self.acs_ph: acs,
-        #                                            self.adv_ph: advs})
         approx_kl = self.sess.run(self.approx_kl,
                                   feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
                                              self.acs_ph: acs[:self.gradient_batch_size],
