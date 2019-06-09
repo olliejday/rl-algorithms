@@ -73,8 +73,6 @@ def _train(env_name, exp_name, model_fn, seed, debug=True, n_iter=100, save_ever
 
     vpg.setup_graph()
 
-    vpg.save_model(0)
-
     timesteps = 0
 
     for itr in range(1, n_iter + 1):
@@ -99,7 +97,7 @@ def _train(env_name, exp_name, model_fn, seed, debug=True, n_iter=100, save_ever
                             Timesteps=timesteps,
                             StdReturn=np.std(returns),
                             MaxReturn=np.max(returns),
-                            MinReturn=np.max(returns),
+                            MinReturn=np.min(returns),
                             EpLenMean=np.mean(ep_lens),
                             EpLenStd=np.std(ep_lens),
                             Entropy=approx_entropy,
@@ -120,8 +118,8 @@ def train_cartpole(n_experiments=3, seed=123, debug=True, exp_name="vpg-cartpole
 
 def train_inverted_pendulum(n_experiments=3, seed=123, debug=True, exp_name="vpg-inverted-pendulum"):
     train("RoboschoolInvertedPendulum-v1", exp_name, fc_small, n_experiments, seed=seed, debug=debug, nn_baseline=True,
-          nn_baseline_fn=fc_small, min_timesteps_per_batch=2500,
-          discrete=False, learning_rate=0.05, n_iter=30, gamma=0.9, render_every=1000)
+          nn_baseline_fn=fc_small, min_timesteps_per_batch=5000,
+          discrete=False, learning_rate=0.01, n_iter=50, gamma=0.9, render_every=1000)
 
 
 def train_lander(n_experiments=3, seed=123, debug=False, exp_name="vpg-lander"):

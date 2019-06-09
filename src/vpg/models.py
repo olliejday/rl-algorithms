@@ -55,14 +55,14 @@ class DiscretePolicy(tf.keras.Model):
     def call(self, inputs):
         x = self.model(inputs)
         sampled_ac = Lambda(lambda x: tf.squeeze(tf.random.categorical(x, 1, name="sampled_ac", dtype=tf.int32),
-                                     axis=1))(x)
+                                     axis=1), name="sample_ac")(x)
         return sampled_ac
 
-    def logprob(self, inputs, acs, name="logprob"):
+    def logprob(self, inputs, acs, name="logprob_ac"):
         # we apply a softmax to get the log probabilities in discrete case
         x = self.model(inputs)
-        logprob = Lambda(lambda x: tf.nn.log_softmax(x))(x)
-        logprob_acs = Lambda(lambda x: gather_nd(x, acs, name=name))(logprob)
+        logprob = Lambda(lambda x: tf.nn.log_softmax(x), name="logprob")(x)
+        logprob_acs = Lambda(lambda x: gather_nd(x, acs, name=name), name=name)(logprob)
         return logprob_acs
 
 
@@ -77,11 +77,11 @@ class ContinuousPolicy(tf.keras.Model):
 
     def call(self, inputs):
         x = self.model(inputs)
-        sampled_ac = Lambda(lambda x: x + tf.exp(self.sy_logstd) * tf.random.normal(shape=tf.shape(x)))(x)
+        sample_z = tf.random.normal(shape=tf.shape(x))
+        sampled_ac = Lambda(lambda x: x + tf.exp(self.sy_logstd) * sample_z, name="sample_ac")(x)
         return sampled_ac
 
     def logprob(self, inputs, acs, name="logprob"):
-        # we apply a softmax to get the log probabilities in discrete case
         x = self.model(inputs)
-        logprob_acs = Lambda(lambda x: gaussian_log_likelihood(acs, x, self.sy_logstd))(x)
+        logprob_acs = Lambda(lambda x: gaussian_log_likelihood(acs, x, self.sy_logstd), name=name)(x)
         return logprob_acs

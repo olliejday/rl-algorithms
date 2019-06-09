@@ -43,17 +43,18 @@ def plot_training_curves(experiments_dir, save=False):
     assert len(os.listdir(experiments_dir)) > 0, "No logs found in {}".format(experiments_dir)
 
     data = []
-    timesteps = None
+    timesteps = []
     for log_dir in os.listdir(experiments_dir):
         log_path = os.path.join(experiments_dir, log_dir, "logs", "logs.txt")
         df = pd.read_csv(log_path, sep=", ", engine="python", index_col=False)
-        # append returns
+        # average returns
         data.append(df["MeanReturn"].values)
-        # should all have same timesteps so just take one of them
-        timesteps = df["Timesteps"]
+        # average timesteps since each worker may have different numbers
+        timesteps.append(df["Timesteps"].values)
 
     mean_return = np.mean(data, axis=0)
     std_return = np.std(data, axis=0)
+    timesteps = np.mean(timesteps, axis=0)
     plt.plot(timesteps, mean_return, label="Mean Return", color="tomato")
     plt.fill_between(timesteps, mean_return - std_return, mean_return + std_return,
                      alpha=0.3, label="Std Return", color="tomato")

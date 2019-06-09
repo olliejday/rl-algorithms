@@ -7,7 +7,7 @@ import numpy as np
 import time
 import os
 
-from src.vpg.utils import GradientBatchTrainer, normalise
+from src.vpg.utils import GradientBatchTrainer, normalise, gaussian_log_likelihood
 from src.common.utils import PGBuffer
 from src.vpg.models import DiscretePolicy, ContinuousPolicy
 
