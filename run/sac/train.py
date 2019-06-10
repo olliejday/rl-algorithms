@@ -11,7 +11,7 @@ import src.sac.utils as utils
 from multiprocessing import Process
 
 
-def train(env_name, exp_name, algorithm_params, n_experiments=3, seed=1, debug=True, n_epochs=500, save_every=450):
+def train(env_name, exp_name, algorithm_params, n_experiments=3, seed=1, debug=True, n_epochs=1000, save_every=300):
     """
     General training setup. Just an interface to call _train() for each seed in parallel.
     :param env_name: Environment name to train on
@@ -106,7 +106,8 @@ def _train(env_name, exp_name, seed, algorithm_params, debug=True, save_every=45
         action_shape=env.action_space.shape,
         **replay_pool_params)
 
-    sac = SAC(**algorithm_params)
+    sac = SAC(experiments_dir=experiments_path,
+              **algorithm_params)
 
     sac.build(
         env=env,
@@ -115,8 +116,6 @@ def _train(env_name, exp_name, seed, algorithm_params, debug=True, save_every=45
         policy_params=policy_params)
 
     sampler.initialize(env, sac.policy, replay_pool)
-
-    sac.save_model(0)
 
     for epoch in sac.train(sampler, n_epochs=n_epochs):
         ep_rtns, ep_lens, timesteps, n_eps = sampler.get_statistics()
@@ -131,11 +130,11 @@ def _train(env_name, exp_name, seed, algorithm_params, debug=True, save_every=45
                             EpLenStd=np.std(ep_lens),
                             NEpisodes=n_eps,
                             )
-        if epoch % save_every:
+        if epoch % save_every == 0:
             sac.save_model(timesteps)
 
 
-#TODO
+
 def train_lander():
     algorithm_params = {
         'alpha': 0.2,

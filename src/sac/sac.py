@@ -40,9 +40,16 @@ class SAC:
         self._two_qf = two_qf
         self._tau = tau
 
+        self._training_ops = []
+
         self.experiments_dir = experiments_dir
 
-        self._training_ops = []
+        # make directory to save models
+        if self.experiments_dir != "":
+            save_dir = os.path.join(self.experiments_dir, "models")
+            if not os.path.exists(save_dir):
+                print("Made model directory: {}".format(save_dir))
+                os.makedirs(save_dir)
 
     def build(self, env, q_function_params, value_function_params, policy_params):
 
@@ -201,3 +208,64 @@ class SAC:
         if self.experiments_dir != "":
             fpath = os.path.join(self.experiments_dir, "models", "model-{}.h5".format(timestep))
             self.policy.save_weights(fpath)
+        else:
+            print("No experiments_dir, so cannot save model.")
+
+    def load_model(self, model_path=None):
+        """
+        Load a model.
+        If no path passed, loads the latest model.
+        """
+        if model_path is None:
+            # then get latest model
+            models_dir = os.path.join(self.experiments_dir, "models")
+            model_files = os.listdir(models_dir)
+            model_number = max([int(f.split(".")[0].split("-")[1]) for f in model_files])
+            model_path = os.path.join(models_dir, "model-{}.h5".format(model_number))
+        self.policy.load_weights(model_path)
+
+
+def run_model(env, experiments_dir, model_path=None, n_episodes=3, **kwargs):
+    """
+    Run a saved, trained model.
+    :param env: environment to run in
+    :param experiments_path: the path to the experiments directory, with logs and models
+    :param model_path: file path of model to run, if None then latest model in experiments_path is loaded
+    :param n_episodes: number of episodes to run
+    :param **kwargs: for VPG setup
+    """
+
+    sac = SAC(experiments_dir=experiments_dir, **kwargs)
+
+    value_function_params = {
+        'hidden_layer_sizes': (128, 128),
+    }
+
+    q_function_params = {
+        'hidden_layer_sizes': (128, 128),
+    }
+
+    policy_params = {
+        'hidden_layer_sizes': (128, 128),
+    }
+
+    sac.build(
+        env=env,
+        q_function_params=q_function_params,
+        value_function_params=value_function_params,
+        policy_params=policy_params)
+
+    sac.load_model(model_path)
+
+    for i in range(n_episodes):
+        done = False
+        obs = env.reset()
+        env.render()
+        reward = 0
+        while not done:
+            ac = sac.policy.eval(obs)
+            obs, rew, done, _ = env.step(ac)
+            reward += rew
+            env.render()
+            time.sleep(0.01)
+        print("Reward: {}".format(reward))
