@@ -109,7 +109,7 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
     env.close()
 
 
-def train_cartpole(n_experiments=3, seed=123, debug=True, exp_name="vpg-cartpole"):
+def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="vpg-cartpole"):
     nn_baseline = FC_NN([64, 64], 1)
     train("CartPole-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
           min_timesteps_per_batch=2500, learning_rate=0.01, n_iter=30, render_every=1000)
@@ -127,8 +127,8 @@ def train_lander(n_experiments=3, seed=1, debug=False, exp_name="vpg-lander"):
           discrete=False, min_timesteps_per_batch=40000, learning_rate=0.005, gradient_batch_size=10000,
           render_every=1000, save_every=90)
 
-
-def train_half_cheetah(n_experiments=3, seed=123, debug=False, exp_name="vpg-half-cheetah"):
+# TODO
+def train_half_cheetah(n_experiments=3, seed=1, debug=False, exp_name="vpg-half-cheetah"):
     nn_baseline = FC_NN([64, 64], 1)
     train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
           discrete=False, min_timesteps_per_batch=50000, learning_rate=0.005, gradient_batch_size=3000,

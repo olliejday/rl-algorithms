@@ -3,32 +3,6 @@ import os
 import tensorflow as tf
 
 
-class Logger:
-    def __init__(self, log_dir):
-        self._summary_writer = tf.summary.FileWriter(
-            os.path.expanduser(log_dir))
-
-        self._rows = []
-
-    def log_value(self, tag, value, step):
-        summary = tf.Summary()
-        summary.value.add(tag=tag, simple_value=value)
-        self._summary_writer.add_summary(summary, step)
-
-        self._rows.append("{tag:.<25} {value}".format(tag=tag, value=value))
-
-    def log_values(self, dictionary, step):
-        for tag, value in dictionary.items():
-            self.log_value(tag, value, step)
-
-    def flush(self):
-        self._summary_writer.flush()
-        print(format("", "_<25"))
-        print("\n".join(self._rows))
-
-        self._rows = []
-
-
 class ReplayPool:
     def __init__(self, max_size, fields):
         max_size = int(max_size)
@@ -88,11 +62,6 @@ class ReplayPool:
         return {
             field_name: getattr(self, field_name)[indices]
             for field_name in field_names
-        }
-
-    def get_statistics(self):
-        return {
-            'PoolSize': self._size,
         }
 
 
@@ -180,6 +149,11 @@ class SimpleSampler(Sampler):
         self._n_episodes = 0
         self._current_observation = None
         self._total_samples = 0
+        # for logging
+        self.ep_lengths = []
+        self.ep_returns = []
+        # take the mean over n last episodes
+        self.mean_n = 10
 
     def sample(self, policy=None):
         policy = self.policy if policy is None else policy
@@ -200,6 +174,10 @@ class SimpleSampler(Sampler):
             next_observations=next_observation)
 
         if terminal or self._episode_length >= self._max_episode_length:
+            # update logs
+            self.ep_lengths.append(self._episode_length)
+            self.ep_returns.append(self._episode_return)
+
             self._current_observation = self.env.reset()
             self._episode_length = 0
             self._max_episode_return = max(self._max_episode_return,
@@ -213,11 +191,11 @@ class SimpleSampler(Sampler):
             self._current_observation = next_observation
 
     def get_statistics(self):
-        statistics = {
-            'MaxEpReturn': self._max_episode_return,
-            'LastEpReturn': self._last_episode_return,
-            'Episodes': self._n_episodes,
-            'TimestepsSoFar': self._total_samples,
-        }
+        """
+        Returns stats for logging.
+        episode returns, episode lengths, total samples, number of episodes, max ep return
+        """
 
-        return statistics
+        return self.ep_returns[:-self.mean_n], self.ep_lengths[:-self.mean_n],\
+               self._total_samples, self._n_episodes, \
+               self._max_episode_return

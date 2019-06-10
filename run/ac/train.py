@@ -104,19 +104,19 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
     env.close()
 
 
-def train_cartpole(seed=123, debug=True, exp_name="ac-cartpole"):
+def train_cartpole(seed=1, debug=True, exp_name="ac-cartpole"):
     train("CartPole-v1", exp_name, seed=seed, debug=debug, min_timesteps_per_batch=2000,
-          n_iter=30, render_every=1000, num_target_updates=10,
+          n_iter=50, render_every=1000, num_target_updates=10,
           num_grad_steps_per_target_update=10)
 
 
-def train_inverted_pendulum(seed=123, debug=True, exp_name="ac-inverted-pendulum"):
+def train_inverted_pendulum(seed=1, debug=True, exp_name="ac-inverted-pendulum"):
     train("RoboschoolInvertedPendulum-v1", exp_name, seed=seed, debug=debug, min_timesteps_per_batch=5000,
           discrete=False, learning_rate_actor=0.01, learning_rate_critic=0.01, n_iter=30, gamma=0.95,
-          render_every=1000, save_every=30)
+          render_every=1000, save_every=50)
 
-
-def train_half_cheetah(seed=123, debug=False, exp_name="ac-half-cheetah"):
+#TODO
+def train_half_cheetah(seed=1, debug=False, exp_name="ac-half-cheetah"):
     train("RoboschoolHalfCheetah-v1", exp_name, seed=seed, debug=debug, discrete=False, min_timesteps_per_batch=30000,
           render_every=1000, gamma=0.95, learning_rate_actor=0.01, learning_rate_critic=0.01,
           critic_model_class=FC_NN, hidden_layer_sizes=[64, 64])

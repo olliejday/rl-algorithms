@@ -1,0 +1,9 @@
+
+        learning_rate: 0.01
+        hidden_layer_size: [64, 64]
+        nn_basline: <src.common.models.FC_NN object at 0x7f01002e8320>
+        max_path_length: 1000
+        min_timesteps_per_batch: 2500
+        reward_to_go: True
+        gamma: 0.99
+        normalise_advntages: True

@@ -95,10 +95,10 @@ def _train(exp_name,
               **kwargs)
     dqn.setup_graph()
 
-    log_cols = ["StdReturn", "MaxReturn", "MinReturn", "EpLenMean", "EpLenStd", "Exploration"]
+    log_cols = ["StdReturn", "MaxReturn", "EpLenMean", "EpLenStd", "Exploration"]
     training_logger = TrainingLogger(experiments_dir, log_cols,
                                      config=["Model_fn: {}".format(model_class.__name__), str(dqn)])
-
+    max_rtn = -np.inf
     while dqn.t < num_timesteps:
         dqn.step_env()
         dqn.update_model()
@@ -114,8 +114,7 @@ def _train(exp_name,
                                 MeanReturn=np.mean(ep_rtrns),
                                 Timesteps=timesteps,
                                 StdReturn=np.std(ep_rtrns),
-                                MaxReturn=np.max(ep_rtrns),
-                                MinReturn=np.min(ep_rtrns),
+                                MaxReturn=max(np.max(ep_rtrns), max_rtn),
                                 EpLenMean=np.mean(ep_lens),
                                 EpLenStd=np.std(ep_lens),
                                 Exploration=exploration,
@@ -126,8 +125,8 @@ def _train(exp_name,
 
     env.close()
 
-
-def train_lander(seed=123, debug=True):
+# TODO
+def train_lander(seed=1, debug=True):
     """
     :param seed: seed to setup system
     :param debug: debug flag for seeding reproducibility vs performance
@@ -177,8 +176,8 @@ def train_lander(seed=123, debug=True):
           log_every_n_steps=10000,
           integer_observations=False)
 
-
-def train_pong(seed=123, debug=False):
+#TODO
+def train_pong(seed=1, debug=False):
     """
     :param seed: seed to setup system
     :param debug: debug flag for seeding reproducibility vs performance

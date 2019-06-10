@@ -70,7 +70,11 @@ class SAC:
         self._target_update_ops = self._create_target_update(
             source=value_function, target=target_value_function)
 
-        tf.get_default_session().run(tf.global_variables_initializer())
+        self.init_tf()
+
+    def init_tf(self):
+        self.sess = tf.keras.backend.get_session()
+        self.sess.run(tf.global_variables_initializer())
 
     def _create_placeholders(self, env):
         observation_dim = env.observation_space.shape[0]
@@ -170,11 +174,3 @@ class SAC:
                 tf.get_default_session().run(self._target_update_ops)
 
             yield epoch
-
-    def get_statistics(self):
-        statistics = {
-            'Time': time.time() - self._start,
-            'TimestepsThisBatch': self._epoch_length,
-        }
-
-        return statistics
