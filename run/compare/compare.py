@@ -22,6 +22,18 @@ def compare_inverted_pendulum():
     plot_training_curves({"ac": ac, "vpg": vpg}, save_to=os.path.join(here_dir, "inverted-pendulum.png"))
 
 
+def compare_lander():
+    # compare LunarLanderContinuous-v2 (so don't compare DQN)
+    # AC logs
+    vpg = os.path.join(run_dir, "vpg", "experiments", "vpg-lander")
+    # SAC logs
+    sac = os.path.join(run_dir, "sac", "experiments", "sac-lander")
+    plot_training_curves({"vpg": vpg, "sac": sac}, save_to=os.path.join(here_dir, "lander.png"))
+
+
+
+
 if __name__ == "__main__":
-    # compare_cartpole()
-    compare_inverted_pendulum()
+#     # compare_cartpole()
+#     compare_inverted_pendulum()
+    compare_lander()

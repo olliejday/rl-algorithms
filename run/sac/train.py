@@ -11,7 +11,7 @@ import src.sac.utils as utils
 from multiprocessing import Process
 
 
-def train(env_name, exp_name, n_experiments=3, seed=1, debug=True):
+def train(env_name, exp_name, algorithm_params, n_experiments=3, seed=1, debug=True, n_epochs=500, save_every=450):
     """
     General training setup. Just an interface to call _train() for each seed in parallel.
     :param env_name: Environment name to train on
@@ -37,7 +37,10 @@ def train(env_name, exp_name, n_experiments=3, seed=1, debug=True):
                 env_name=env_name,
                 exp_name=exp_name,
                 seed=seed,
-                debug=debug
+                algorithm_params=algorithm_params,
+                debug=debug,
+                save_every=save_every,
+                n_epochs=n_epochs
             )
         # # Awkward hacky process runs, because Tensorflow does not like
         # # repeatedly calling train in the same thread.
@@ -52,34 +55,13 @@ def train(env_name, exp_name, n_experiments=3, seed=1, debug=True):
         p.join()
 
 
-def _train(env_name, exp_name, seed, debug=True):
+def _train(env_name, exp_name, seed, algorithm_params, debug=True, save_every=450, n_epochs=500):
     """
      Training function to be called for a process in parallel, same args as train()
     """
-    alpha = {
-        'Ant-v2': 0.1,
-        'HalfCheetah-v2': 0.2,
-        'Hopper-v2': 0.2,
-        'Humanoid-v2': 0.05,
-        'Walker2d-v2': 0.2,
-    }.get(env_name, 0.2)
-
-    algorithm_params = {
-        'alpha': alpha,
-        'batch_size': 256,
-        'discount': 0.99,
-        'learning_rate': 3e-4,
-        'reparameterize': True,
-        'tau': 5e-3,
-        'epoch_length': 1000,
-        'n_epochs': 500,
-        'two_qf': True,
-    }
     sampler_params = {
         'max_episode_length': 1000,
         'prefill_steps': 1000,
-        'n_epochs': 1000,
-        'save_every': 450,
     }
     replay_pool_params = {
         'max_size': 1e6,
@@ -128,8 +110,6 @@ def _train(env_name, exp_name, seed, debug=True):
 
     sac.build(
         env=env,
-        two_qf=algorithm_params["two_qf"],
-        reparam=algorithm_params["reparameterize"],
         q_function_params=q_function_params,
         value_function_params=value_function_params,
         policy_params=policy_params)
@@ -138,7 +118,7 @@ def _train(env_name, exp_name, seed, debug=True):
 
     sac.save_model(0)
 
-    for epoch in sac.train(sampler, n_epochs=algorithm_params.get('n_epochs', 1000)):
+    for epoch in sac.train(sampler, n_epochs=n_epochs):
         ep_rtns, ep_lens, timesteps, n_eps = sampler.get_statistics()
         training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),
                             MeanReturn=np.mean(ep_rtns),
@@ -151,25 +131,66 @@ def _train(env_name, exp_name, seed, debug=True):
                             EpLenStd=np.std(ep_lens),
                             NEpisodes=n_eps,
                             )
-        if epoch % algorithm_params.get('save_every', 1000):
+        if epoch % save_every:
             sac.save_model(timesteps)
 
 
 #TODO
 def train_lander():
-    train('LunarLanderContinuous-v2', "sac-lander", seed=1, debug=True)
+    algorithm_params = {
+        'alpha': 0.2,
+        'batch_size': 256,
+        'discount': 0.99,
+        'learning_rate': 3e-4,
+        'reparameterize': True,
+        'tau': 5e-3,
+        'epoch_length': 1000,
+        'two_qf': False
+    }
+    train('LunarLanderContinuous-v2', "sac-lander", algorithm_params, n_epochs=750, save_every=350,
+          seed=123, debug=True)
 
 #TODO
 def train_half_cheetah():
-    train("RoboschoolHalfCheetah-v1", "sac-half-cheetah", seed=1, debug=True)
+    algorithm_params = {
+        'alpha': 0.2,
+        'batch_size': 256,
+        'discount': 0.99,
+        'learning_rate': 3e-4,
+        'reparameterize': True,
+        'tau': 5e-3,
+        'epoch_length': 1000,
+        'two_qf': True
+    }
+    train("RoboschoolHalfCheetah-v1", "sac-half-cheetah", algorithm_params, seed=1, debug=True)
 
 #TODO
 def train_inverted_pendulum():
-    train("RoboschoolInvertedPendulum-v1", "sac-inverted-pendulum", seed=1, debug=True)
+    algorithm_params = {
+        'alpha': 0.2,
+        'batch_size': 256,
+        'discount': 0.99,
+        'learning_rate': 3e-4,
+        'reparameterize': True,
+        'tau': 5e-3,
+        'epoch_length': 1000,
+        'two_qf': True
+    }
+    train("RoboschoolInvertedPendulum-v1", "sac-inverted-pendulum", algorithm_params, seed=1, debug=True)
 
 #TODO
 def train_ant():
-    train("RoboschoolAnt-v1", "sac-ant", seed=1, debug=True)
+    algorithm_params = {
+        'alpha': 0.1,
+        'batch_size': 256,
+        'discount': 0.99,
+        'learning_rate': 3e-4,
+        'reparameterize': True,
+        'tau': 5e-3,
+        'epoch_length': 1000,
+        'two_qf': True
+    }
+    train("RoboschoolAnt-v1", "sac-ant", algorithm_params, seed=1, debug=True)
 
 
 if __name__ == "__main__":
