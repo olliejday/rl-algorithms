@@ -6,7 +6,7 @@ import os
 import tensorflow as tf
 import time
 
-import src.sac.nn as nn
+import src.sac.models as nn
 from src.sac.sac import SAC
 import src.sac.utils as utils
 

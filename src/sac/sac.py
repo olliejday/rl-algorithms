@@ -20,8 +20,7 @@ class SAC:
                  epoch_length=1000,
                  learning_rate=3e-3,
                  reparameterize=False,
-                 tau=0.01,
-                 **kwargs):
+                 tau=0.01):
         """
         Args:
         """
@@ -105,15 +104,11 @@ class SAC:
 
     def _policy_loss_for(self, policy, q_function, q_function2, value_function):
         if self._reparameterize:
-            ### Problem 1.3.B
-            ### YOUR CODE HERE
             # normal sample stage handled within policy
             action_samples, sample_log_probs = policy(self._observations_ph)
             q_value_estimates = q_function([self._observations_ph, action_samples])
             return tf.reduce_mean(self._alpha * sample_log_probs - q_value_estimates)
         else:
-            ### Problem 1.3.A
-            ### YOUR CODE HERE
             action_samples, sample_log_probs = policy(self._observations_ph)
             q_value_estimates = q_function([self._observations_ph, action_samples])
             if q_function2 is not None:
@@ -128,8 +123,6 @@ class SAC:
             return tf.reduce_mean(sample_log_probs * target_values)
 
     def _value_function_loss_for(self, policy, q_function, q_function2, value_function):
-        ### Problem 1.2.A
-        ### YOUR CODE HERE
         action_samples, sample_log_probs = policy(self._observations_ph)
         value_function_estimates = value_function(self._observations_ph)
         # correct for positive bias with two q functions
@@ -142,8 +135,6 @@ class SAC:
 
 
     def _q_function_loss_for(self, q_function, target_value_function):
-        ### Problem 1.1.A
-        ### YOUR CODE HERE
         q_value_estimates = q_function([self._observations_ph, self._actions_ph])
         target_value_estimates = target_value_function(self._next_observations_ph)
         # incorporate discount and the terminal mask
@@ -160,14 +151,7 @@ class SAC:
         ]
 
     def train(self, sampler, n_epochs=1000):
-        """Return a generator that performs RL training.
-
-        Args:
-            env (`rllab.Env`): Environment used for training
-            policy (`Policy`): Policy used for training
-            initial_exploration_policy ('Policy'): Policy used for exploration
-                If None, then all exploration is done using policy
-            pool (`PoolBase`): Sample pool to add samples to
+        """Performs RL training using the `sampler` for `n_epochs`.
         """
         self._start = time.time()
         for epoch in range(n_epochs):
