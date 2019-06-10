@@ -3,12 +3,14 @@ import gym
 import numpy as np
 import os
 import time
+import roboschool
+from multiprocessing import Process
+
 
 from src.common.utils import set_global_seeds, TrainingLogger
 from src.sac.sac import SAC
 import src.sac.utils as utils
 
-from multiprocessing import Process
 
 
 def train(env_name, exp_name, algorithm_params, n_experiments=3, seed=1, debug=True, n_epochs=1000, save_every=300):

@@ -117,8 +117,8 @@ def train_inverted_pendulum(seed=1, debug=True, exp_name="ac-inverted-pendulum")
 
 #TODO
 def train_half_cheetah(seed=1, debug=False, exp_name="ac-half-cheetah"):
-    train("RoboschoolHalfCheetah-v1", exp_name, seed=seed, debug=debug, discrete=False, min_timesteps_per_batch=30000,
-          render_every=1000, gamma=0.95, learning_rate_actor=0.025, learning_rate_critic=0.025,
+    train("RoboschoolHalfCheetah-v1", exp_name, seed=seed, debug=debug, discrete=False, min_timesteps_per_batch=40000,
+          render_every=1000, gamma=0.95, learning_rate_actor=0.04, learning_rate_critic=0.04,
           critic_model_class=FC_NN, hidden_layer_sizes=[64, 64])
 
 
