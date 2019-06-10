@@ -1,8 +1,0 @@
-
-        learning_rate: 0.003
-        nn_basline: <src.vpg.models.FC_NN object at 0x7f5bc71956a0>
-        max_path_length: 1000
-        min_timesteps_per_batch: 2500
-        reward_to_go: True
-        gamma: 0.9
-        normalise_advntages: True

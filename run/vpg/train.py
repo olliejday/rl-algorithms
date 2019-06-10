@@ -4,6 +4,7 @@ import argparse
 import time
 import numpy as np
 from multiprocessing import Process
+import roboschool
 
 from src.vpg.vpg import VanillaPolicyGradients
 from src.common.models import FC_NN
@@ -114,25 +115,24 @@ def train_cartpole(n_experiments=3, seed=123, debug=True, exp_name="vpg-cartpole
           min_timesteps_per_batch=2500, learning_rate=0.01, n_iter=30, render_every=1000)
 
 
-def train_inverted_pendulum(n_experiments=3, seed=123, debug=True, exp_name="vpg-inverted-pendulum"):
-    nn_baseline = FC_NN([64, 64], 1)
+def train_inverted_pendulum(n_experiments=3, seed=1, debug=True, exp_name="vpg-inverted-pendulum"):
     train("RoboschoolInvertedPendulum-v1", exp_name, n_experiments, seed=seed, debug=debug,
-          nn_baseline=nn_baseline, min_timesteps_per_batch=2500,
-          discrete=False, learning_rate=0.003, n_iter=100, gamma=0.9, render_every=1000, save_every=90)
+          nn_baseline=None, min_timesteps_per_batch=3000,
+          discrete=False, learning_rate=0.01, n_iter=100, gamma=0.95, render_every=1000, save_every=30)
 
 
 def train_lander(n_experiments=3, seed=123, debug=False, exp_name="vpg-lander"):
     nn_baseline = FC_NN([64, 64], 1)
     train("LunarLanderContinuous-v2", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
           discrete=False, min_timesteps_per_batch=40000, learning_rate=0.005, gradient_batch_size=1000,
-          render_every=1000, save_every=30)
+          render_every=1000, save_every=90)
 
 
 def train_half_cheetah(n_experiments=3, seed=123, debug=False, exp_name="vpg-half-cheetah"):
     nn_baseline = FC_NN([64, 64], 1)
     train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
           discrete=False, min_timesteps_per_batch=50000, learning_rate=0.005, gradient_batch_size=3000,
-          render_every=1000, save_every=30)
+          render_every=1000, save_every=90)
 
 
 if __name__ == "__main__":
