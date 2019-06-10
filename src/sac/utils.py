@@ -193,9 +193,8 @@ class SimpleSampler(Sampler):
     def get_statistics(self):
         """
         Returns stats for logging.
-        episode returns, episode lengths, total samples, number of episodes, max ep return
+        episode returns, episode lengths, total samples, number of episodes
         """
 
         return self.ep_returns[:-self.mean_n], self.ep_lengths[:-self.mean_n],\
-               self._total_samples, self._n_episodes, \
-               self._max_episode_return
+               self._total_samples, self._n_episodes

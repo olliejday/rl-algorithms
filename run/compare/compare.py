@@ -23,5 +23,5 @@ def compare_inverted_pendulum():
 
 
 if __name__ == "__main__":
-    compare_cartpole()
-    # compare_inverted_pendulum()
+    # compare_cartpole()
+    compare_inverted_pendulum()

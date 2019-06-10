@@ -110,7 +110,7 @@ def _train(env_name, exp_name, seed, debug=True):
         'q_function_params': q_function_params,
         'policy_params': policy_params
     }
-    log_cols = ["Iteration", "StdReturn", "MaxReturn", "EpLenMean", "EpLenStd", "NEpisodes"]
+    log_cols = ["Iteration", "StdReturn", "MaxReturn", "MinReturn", "EpLenMean", "EpLenStd", "NEpisodes"]
     training_logger = TrainingLogger(experiments_path, log_cols, config=[str(params)])
 
     # Set random seeds
@@ -151,13 +151,14 @@ def _train(env_name, exp_name, seed, debug=True):
         target_value_function=target_value_function)
 
     for epoch in algorithm.train(sampler, n_epochs=algorithm_params.get('n_epochs', 1000)):
-        ep_rtns, ep_lens, timesteps, n_eps, max_rtn = sampler.get_statistics()
+        ep_rtns, ep_lens, timesteps, n_eps = sampler.get_statistics()
         training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),
                             MeanReturn=np.mean(ep_rtns),
                             Timesteps=timesteps,
                             Iteration=epoch,
                             StdReturn=np.std(ep_rtns),
-                            MaxReturn=max_rtn,
+                            MaxReturn=np.max(ep_rtns),
+                            MinReturn=np.min(ep_rtns),
                             EpLenMean=np.mean(ep_lens),
                             EpLenStd=np.std(ep_lens),
                             NEpisodes=n_eps,
