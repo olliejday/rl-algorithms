@@ -2,10 +2,8 @@ import argparse
 import gym
 import numpy as np
 import os
-import tensorflow as tf
 import time
 
-import src.sac.models as nn
 from src.common.utils import set_global_seeds, TrainingLogger
 from src.sac.sac import SAC
 import src.sac.utils as utils
@@ -80,6 +78,8 @@ def _train(env_name, exp_name, seed, debug=True):
     sampler_params = {
         'max_episode_length': 1000,
         'prefill_steps': 1000,
+        'n_epochs': 1000,
+        'save_every': 450,
     }
     replay_pool_params = {
         'max_size': 1e6,
@@ -124,33 +124,21 @@ def _train(env_name, exp_name, seed, debug=True):
         action_shape=env.action_space.shape,
         **replay_pool_params)
 
-    q_function = nn.QFunction(name='q_function', **q_function_params)
-    if algorithm_params.get('two_qf', False):
-        q_function2 = nn.QFunction(name='q_function2', **q_function_params)
-    else:
-        q_function2 = None
-    value_function = nn.ValueFunction(
-        name='value_function', **value_function_params)
-    target_value_function = nn.ValueFunction(
-        name='target_value_function', **value_function_params)
-    policy = nn.GaussianPolicy(
-        action_dim=env.action_space.shape[0],
-        reparameterize=algorithm_params['reparameterize'],
-        **policy_params)
+    sac = SAC(**algorithm_params)
 
-    sampler.initialize(env, policy, replay_pool)
-
-    algorithm = SAC(**algorithm_params)
-
-    algorithm.build(
+    sac.build(
         env=env,
-        policy=policy,
-        q_function=q_function,
-        q_function2=q_function2,
-        value_function=value_function,
-        target_value_function=target_value_function)
+        two_qf=algorithm_params["two_qf"],
+        reparam=algorithm_params["reparameterize"],
+        q_function_params=q_function_params,
+        value_function_params=value_function_params,
+        policy_params=policy_params)
 
-    for epoch in algorithm.train(sampler, n_epochs=algorithm_params.get('n_epochs', 1000)):
+    sampler.initialize(env, sac.policy, replay_pool)
+
+    sac.save_model(0)
+
+    for epoch in sac.train(sampler, n_epochs=algorithm_params.get('n_epochs', 1000)):
         ep_rtns, ep_lens, timesteps, n_eps = sampler.get_statistics()
         training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),
                             MeanReturn=np.mean(ep_rtns),
@@ -163,6 +151,8 @@ def _train(env_name, exp_name, seed, debug=True):
                             EpLenStd=np.std(ep_lens),
                             NEpisodes=n_eps,
                             )
+        if epoch % algorithm_params.get('save_every', 1000):
+            sac.save_model(timesteps)
 
 
 #TODO

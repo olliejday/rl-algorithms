@@ -1,5 +1,9 @@
+import os
+
 import tensorflow as tf
 import time
+
+from src.sac.models import GaussianPolicy, ValueFunction, QFunction
 
 
 class SAC:
@@ -14,6 +18,7 @@ class SAC:
     """
 
     def __init__(self,
+                 experiments_dir="",
                  alpha=1.0,
                  batch_size=256,
                  discount=0.99,
@@ -33,42 +38,54 @@ class SAC:
         self._reparameterize = reparameterize
         self._tau = tau
 
+        self.experiments_dir = experiments_dir
+
         self._training_ops = []
 
-    def build(self, env, policy, q_function, q_function2, value_function,
-              target_value_function):
+    def build(self, env, two_qf, reparam, q_function_params, value_function_params, policy_params):
+
+        self.q_function = QFunction(name='q_function', **q_function_params)
+        if two_qf:
+            self.q_function2 = QFunction(name='q_function2', **q_function_params)
+        else:
+            self.q_function2 = None
+        self.value_function = ValueFunction(
+            name='value_function', **value_function_params)
+        self.target_value_function = ValueFunction(
+            name='target_value_function', **value_function_params)
+        self.policy = GaussianPolicy(
+            action_dim=env.action_space.shape[0],
+            reparameterize=reparam,
+            **policy_params)
 
         self._create_placeholders(env)
 
-        policy_loss = self._policy_loss_for(policy, q_function, q_function2, value_function)
-        value_function_loss = self._value_function_loss_for(
-            policy, q_function, q_function2, value_function)
-        q_function_loss = self._q_function_loss_for(q_function,
-                                                    target_value_function)
-        if q_function2 is not None:
-            q_function2_loss = self._q_function_loss_for(q_function2,
-                                                        target_value_function)
+        policy_loss = self._policy_loss_for()
+        value_function_loss = self._value_function_loss_for()
+        q_function_loss = self._q_function_loss_for()
+        if self.q_function2 is not None:
+            q_function2_loss = self._q_function_loss_for()
 
         optimizer = tf.train.AdamOptimizer(
             self._learning_rate, name='optimizer')
         policy_training_op = optimizer.minimize(
-            loss=policy_loss, var_list=policy.trainable_variables)
+            loss=policy_loss, var_list=self.policy.trainable_variables)
         value_training_op = optimizer.minimize(
             loss=value_function_loss,
-            var_list=value_function.trainable_variables)
+            var_list=self.value_function.trainable_variables)
         q_function_training_op = optimizer.minimize(
-            loss=q_function_loss, var_list=q_function.trainable_variables)
-        if q_function2 is not None:
+            loss=q_function_loss, var_list=self.q_function.trainable_variables)
+        if self.q_function2 is not None:
             q_function2_training_op = optimizer.minimize(
-                loss=q_function2_loss, var_list=q_function2.trainable_variables)
+                loss=q_function2_loss, var_list=self.q_function2.trainable_variables)
 
         self._training_ops = [
             policy_training_op, value_training_op, q_function_training_op
         ]
-        if q_function2 is not None:
+        if self.q_function2 is not None:
             self._training_ops += [q_function2_training_op]
         self._target_update_ops = self._create_target_update(
-            source=value_function, target=target_value_function)
+            source=self.value_function, target=self.target_value_function)
 
         self.init_tf()
 
@@ -106,41 +123,41 @@ class SAC:
             name='terminals',
         )
 
-    def _policy_loss_for(self, policy, q_function, q_function2, value_function):
+    def _policy_loss_for(self):
         if self._reparameterize:
             # normal sample stage handled within policy
-            action_samples, sample_log_probs = policy(self._observations_ph)
-            q_value_estimates = q_function([self._observations_ph, action_samples])
+            action_samples, sample_log_probs = self.policy(self._observations_ph)
+            q_value_estimates = self.q_function([self._observations_ph, action_samples])
             return tf.reduce_mean(self._alpha * sample_log_probs - q_value_estimates)
         else:
-            action_samples, sample_log_probs = policy(self._observations_ph)
-            q_value_estimates = q_function([self._observations_ph, action_samples])
-            if q_function2 is not None:
+            action_samples, sample_log_probs = self.policy(self._observations_ph)
+            q_value_estimates = self.q_function([self._observations_ph, action_samples])
+            if self.q_function2 is not None:
                 # correct for positive bias with two q functions
                 q_value_estimates = tf.minimum(q_value_estimates,
-                                               q_function2([self._observations_ph, action_samples]))
+                                               self.q_function2([self._observations_ph, action_samples]))
             # baseline as value function
-            baseline = value_function(self._observations_ph)
+            baseline = self.value_function(self._observations_ph)
             # don't want value through targets
             target_values = tf.stop_gradient(self._alpha * sample_log_probs - q_value_estimates + baseline)
             # we do want gradients through this policy sample
             return tf.reduce_mean(sample_log_probs * target_values)
 
-    def _value_function_loss_for(self, policy, q_function, q_function2, value_function):
-        action_samples, sample_log_probs = policy(self._observations_ph)
-        value_function_estimates = value_function(self._observations_ph)
+    def _value_function_loss_for(self):
+        action_samples, sample_log_probs = self.policy(self._observations_ph)
+        value_function_estimates = self.value_function(self._observations_ph)
         # correct for positive bias with two q functions
-        q_function_estimates = q_function([self._observations_ph, action_samples])
-        if q_function2 is not None:
+        q_function_estimates = self.q_function([self._observations_ph, action_samples])
+        if self.q_function2 is not None:
             # correct for positive bias with two q functions
             q_function_estimates = tf.minimum(q_function_estimates,
-                                              q_function2([self._observations_ph, action_samples]))
+                                              self.q_function2([self._observations_ph, action_samples]))
         return tf.reduce_mean((value_function_estimates - (q_function_estimates - self._alpha * sample_log_probs)) ** 2)
 
 
-    def _q_function_loss_for(self, q_function, target_value_function):
-        q_value_estimates = q_function([self._observations_ph, self._actions_ph])
-        target_value_estimates = target_value_function(self._next_observations_ph)
+    def _q_function_loss_for(self):
+        q_value_estimates = self.q_function([self._observations_ph, self._actions_ph])
+        target_value_estimates = self.target_value_function(self._next_observations_ph)
         # incorporate discount and the terminal mask
         target_values = self._rewards_ph + (1 - self._terminals_ph) * self._discount * target_value_estimates
         return tf.reduce_mean((q_value_estimates - target_values) ** 2)
@@ -174,3 +191,11 @@ class SAC:
                 tf.get_default_session().run(self._target_update_ops)
 
             yield epoch
+
+    def save_model(self, timestep):
+        """
+        Save current policy model.
+        """
+        if self.experiments_dir != "":
+            fpath = os.path.join(self.experiments_dir, "models", "model-{}.h5".format(timestep))
+            self.policy.save_weights(fpath)
