@@ -171,13 +171,13 @@ def train_inverted_pendulum():
         'alpha': 0.2,
         'batch_size': 256,
         'discount': 0.99,
-        'learning_rate': 5e-3,
+        'learning_rate': 1e-2,
         'reparameterize': True,
         'tau': 5e-3,
-        'epoch_length': 100,
+        'epoch_length': 500,
         'two_qf': True
     }
-    train("RoboschoolInvertedPendulum-v1", "sac-inverted-pendulum", algorithm_params, n_epochs=1000, save_every=990,
+    train("RoboschoolInvertedPendulum-v1", "sac-inverted-pendulum", algorithm_params, n_epochs=500, save_every=490,
           seed=1, debug=True)
 
 #TODO

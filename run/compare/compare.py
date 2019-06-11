@@ -17,9 +17,11 @@ def compare_cartpole():
 def compare_inverted_pendulum():
     # AC logs
     ac = os.path.join(run_dir, "ac", "experiments", "ac-inverted-pendulum")
+    # SAC
+    sac = os.path.join(run_dir, "sac", "experiments", "sac-inverted-pendulum")
     # VPG logs
     vpg = os.path.join(run_dir, "vpg", "experiments", "vpg-inverted-pendulum")
-    plot_training_curves({"ac": ac, "vpg": vpg}, save_to=os.path.join(here_dir, "inverted-pendulum.png"))
+    plot_training_curves({"ac": ac, "sac": sac, "vpg": vpg}, save_to=os.path.join(here_dir, "inverted-pendulum.png"))
 
 
 def compare_lander():
