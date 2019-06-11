@@ -136,7 +136,6 @@ def _train(env_name, exp_name, seed, algorithm_params, debug=True, save_every=45
             sac.save_model(timesteps)
 
 
-
 def train_lander():
     algorithm_params = {
         'alpha': 0.2,
@@ -165,13 +164,13 @@ def train_half_cheetah():
     }
     train("RoboschoolHalfCheetah-v1", "sac-half-cheetah", algorithm_params, seed=1, debug=True)
 
-#TODO
+
 def train_inverted_pendulum():
     algorithm_params = {
         'alpha': 0.2,
         'batch_size': 256,
         'discount': 0.99,
-        'learning_rate': 1e-2,
+        'learning_rate': 6e-4,
         'reparameterize': True,
         'tau': 5e-3,
         'epoch_length': 500,
