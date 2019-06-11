@@ -114,7 +114,7 @@ def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="vpg-cartpole")
     train("CartPole-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
           min_timesteps_per_batch=2500, learning_rate=0.01, n_iter=30, render_every=1000)
 
-#TODO
+
 def train_inverted_pendulum(n_experiments=3, seed=1, debug=True, exp_name="vpg-inverted-pendulum"):
     train("RoboschoolInvertedPendulum-v1", exp_name, n_experiments, seed=seed, debug=debug,
           nn_baseline=None, min_timesteps_per_batch=5000,
