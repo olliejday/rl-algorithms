@@ -16,11 +16,12 @@ class GradientBatchTrainer:
     want to compute gradients in batches then sum them to update.
     From: https://stackoverflow.com/questions/42156957/how-to-update-model-parameters-with-accumulated-gradients
     """
-    def __init__(self, loss_op, learning_rate):
+    def __init__(self, loss_op, learning_rate, average_gradient_batches=True):
         """
         Sets up the gradient batching and averaging TF operations.
         :param loss_op: Loss to optimise
         :param learning_rate: learning rate to use for optimiser
+        :param average_gradient_batches: whether to average the gradient over batches, otherwise it is summed
         """
         optimizer = tf.train.AdamOptimizer(learning_rate)
         # Fetch a list of our network's trainable parameters.
@@ -41,6 +42,13 @@ class GradientBatchTrainer:
             ) for (accumulator, (grad, var)) in zip(accumulators, grad_pairs)
             if grad is not None and var is not None
         ]
+
+        if average_gradient_batches:
+            # Create a variable for counting the number of accumulations
+            accumulation_counter = tf.Variable(0.0, trainable=False)
+            # The final accumulation operation is to increment the counter
+            self.accumulate_ops.append(accumulation_counter.assign_add(1.0))
+
         # Update trainable variables by applying the accumulated gradients
         # divided by the counter. Note: apply_gradients takes in a list of
         # (grad, var) pairs
@@ -58,12 +66,15 @@ class GradientBatchTrainer:
     def get_batches(self, data, batch_size):
         """
         Returns data split into an array of batches of size batch_size.
+        If the batch size does not exactly fit, we only include the extra if it's at least
+        half a batch size (otherwise we get noisy gradients)
         """
         n = int(len(data) / batch_size)
-        if len(data) % batch_size == 0:
-            return [data[i:i + batch_size] for i in range(n)]
-        else:
+        if len(data) % batch_size != 0 and (len(data) / batch_size) - int(len(data) / batch_size) > 0.5:
             return [data[i * batch_size:(i + 1) * batch_size] for i in range(n)] + [data[n * batch_size:]]
+        else:
+            # otherwise must exactly divide or have less than half a batch
+            return [data[i:i + batch_size] for i in range(n)]
 
     def get_feed_dicts(self, feed_dict, batch_size):
         """
