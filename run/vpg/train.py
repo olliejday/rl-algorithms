@@ -124,7 +124,7 @@ def train_inverted_pendulum(n_experiments=3, seed=1, debug=True, exp_name="vpg-i
 def train_lander(n_experiments=3, seed=123, debug=False, exp_name="vpg-lander"):
     nn_baseline = FC_NN([64, 64], 1)
     train("LunarLanderContinuous-v2", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
-          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.005, gradient_batch_size=40000,
+          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.01, gradient_batch_size=40000,
           render_every=1000, save_every=90)
 
 
