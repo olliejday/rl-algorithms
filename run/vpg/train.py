@@ -108,7 +108,7 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
 
     env.close()
 
-#TODO
+
 def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="vpg-cartpole"):
     nn_baseline = FC_NN([64, 64], 1)
     train("CartPole-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
