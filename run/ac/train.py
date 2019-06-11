@@ -112,7 +112,7 @@ def train_cartpole(seed=1, debug=True, exp_name="ac-cartpole"):
 
 def train_inverted_pendulum(seed=1, debug=True, exp_name="ac-inverted-pendulum"):
     train("RoboschoolInvertedPendulum-v1", exp_name, seed=seed, debug=debug, min_timesteps_per_batch=5000,
-          discrete=False, learning_rate_actor=0.005, learning_rate_critic=0.01, n_iter=30, gamma=0.95,
+          discrete=False, learning_rate_actor=0.01, learning_rate_critic=0.01, n_iter=30, gamma=0.95,
           render_every=1000, save_every=50)
 
 #TODO
