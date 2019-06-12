@@ -49,7 +49,7 @@ def run_lander(exp_name="dqn-lander", seed=123, debug=True):
     run(exp_name, env, DQNFCModelKeras, seed=seed, frame_history_len=1, integer_observations=False)
 
 
-def run_pong(exp_name="dqn-pong", seed=123, debug=False):
+def run_pong(exp_name="dqn-pong", seed=1, debug=False):
     if debug:
         print('Random seed = %d' % seed)
     env = gym.make("PongNoFrameskip-v4")

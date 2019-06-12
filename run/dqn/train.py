@@ -155,7 +155,7 @@ def train_lander(seed=123, debug=True):
         kwargs={}
     )
 
-    train("dqn-lander"
+    train("dqn-lander",
           "LunarLander-v2",
           DQNFCModelKeras,
           optimizer,
