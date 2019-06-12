@@ -184,11 +184,7 @@ class DQN():
         # we init the model class to setup the model. It can then be called as a function on an input placeholder to
         # return the outputs
         self.q_model = self.q_model_class(self.ac_dim, integer_observations=self.integer_observations, env=self.env)
-
-        # q_op and target_q_op are the Q and target network models
         self.q_model_ob = self.q_model(self.ob_placeholder)
-
-        # handle for use in rolling out policy
         self.q_model_next_ob = self.q_model(self.next_ob_placeholder)
 
         self.target_model = self.target_model_class(self.ac_dim, integer_observations=self.integer_observations,
