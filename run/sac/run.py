@@ -44,7 +44,7 @@ def run_lander(exp_name="sac-lander", seed=123, debug=True):
     run(env, exp_name, seed)
 
 
-def run_half_cheetah(exp_name="sac-half-cheetah", seed=123, debug=False):
+def run_half_cheetah(exp_name="sac-half-cheetah", seed=1, debug=False):
     env = gym.make("RoboschoolHalfCheetah-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)

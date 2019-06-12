@@ -151,7 +151,7 @@ class SimpleSampler(Sampler):
         self.ep_lengths = []
         self.ep_returns = []
         # take the mean over n last episodes
-        self.mean_n = 10
+        self.mean_n = 2
 
     def sample(self, policy=None):
         policy = self.policy if policy is None else policy
