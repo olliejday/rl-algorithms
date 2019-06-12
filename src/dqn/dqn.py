@@ -1,10 +1,8 @@
 import time
 import gym.spaces
 import numpy as np
-import tensorflow as tf
 import os
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Lambda
 
 from src.dqn.utils import LinearSchedule, huber_loss, get_wrapper_by_name, DQNReplayBuffer, ConstantSchedule
 
@@ -168,17 +166,15 @@ class DQN():
             input_shape = (img_h, img_w, self.frame_history_len * img_c)
         # casting to float on GPU ensures lower data transfer times.
         if self.integer_observations:
-            self.ob_placeholder = Input(shape=[dim for dim in input_shape], name="observation", dtype="uint8")
-            self.next_ob_placeholder = Input(shape=[dim for dim in input_shape], name="next_ob", dtype="uint8")
-            ob_range = self.env.observation_space.high - self.env.observation_space.low
-            cast_layer = Lambda(lambda x: tf.cast(x, tf.float32) / ob_range, name="cast_to_float")
-            self.ob_placeholder_float = cast_layer(self.ob_placeholder)
-            self.next_ob_placeholder_float = cast_layer(self.next_ob_placeholder)
+            self.ob_placeholder = tf.placeholder(shape=[None] + [dim for dim in input_shape], name="observation",
+                                                 dtype=tf.uint8)
+            self.next_ob_placeholder = tf.placeholder(shape=[None] + [dim for dim in input_shape], name="next_ob",
+                                                      dtype=tf.uint8)
         else:
-            self.ob_placeholder = Input(shape=[dim for dim in input_shape], name="observation", dtype="float32")
-            self.next_ob_placeholder = Input(shape=[dim for dim in input_shape], name="next_ob", dtype="float32")
-            self.ob_placeholder_float = self.ob_placeholder
-            self.next_ob_placeholder_float = self.next_ob_placeholder
+            self.ob_placeholder = tf.placeholder(shape=[None] + [dim for dim in input_shape], name="observation",
+                                                 dtype=tf.float32)
+            self.next_ob_placeholder = tf.placeholder(shape=[None] + [dim for dim in input_shape], name="next_ob",
+                                                      dtype=tf.float32)
         self.ac_placeholder = tf.placeholder(shape=[None], name="action", dtype=tf.int32)
         self.rew_placeholder = tf.placeholder(shape=[None], name="reward", dtype=tf.float32)
         self.done_mask_ph = tf.placeholder(shape=[None], name="done_mask", dtype=tf.float32)
@@ -187,14 +183,17 @@ class DQN():
     def setup_inference(self):
         # we init the model class to setup the model. It can then be called as a function on an input placeholder to
         # return the outputs
-        self.q_model = self.q_model_class(self.ac_dim)
-        # q_op and target_q_op are the Q and target network models
-        self.q_model_ob = self.q_model(self.ob_placeholder_float)
-        # handle for use in rolling out policy
-        self.q_model_next_ob = self.q_model(self.next_ob_placeholder_float)
+        self.q_model = self.q_model_class(self.ac_dim, integer_observations=self.integer_observations, env=self.env)
 
-        self.target_model = self.target_model_class(self.ac_dim)
-        self.target_model_outputs = self.target_model(self.next_ob_placeholder_float)
+        # q_op and target_q_op are the Q and target network models
+        self.q_model_ob = self.q_model(self.ob_placeholder)
+
+        # handle for use in rolling out policy
+        self.q_model_next_ob = self.q_model(self.next_ob_placeholder)
+
+        self.target_model = self.target_model_class(self.ac_dim, integer_observations=self.integer_observations,
+                                                    env=self.env)
+        self.target_model_outputs = self.target_model(self.next_ob_placeholder)
         self.target_q_func_vars = self.target_model.trainable_weights
 
     def setup_loss(self):
