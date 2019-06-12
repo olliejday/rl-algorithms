@@ -156,7 +156,7 @@ def train_half_cheetah():
         'alpha': 0.2,
         'batch_size': 256,
         'discount': 0.99,
-        'learning_rate': 3e-4,
+        'learning_rate': 5e-4,
         'reparameterize': True,
         'tau': 5e-3,
         'epoch_length': 1000,
