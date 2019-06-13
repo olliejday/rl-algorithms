@@ -32,6 +32,11 @@ included are:
     * RoboschoolHalfCheetah-v1
     * RoboschoolAnt-v1
     
+    
+All experiments (except some that are highly expensive to run), are run over three random
+seeds. Plots then show mean and standard deviation across seeds to give a more reliable
+indicator of the algorithms' behaviour.
+    
 For some of the environments that multiple algorithms were run on, we include plots 
 to compare the training and performance of the different algorithms. These are included
 in the /run/compare directory. They use the returns for episodes gathered during training
