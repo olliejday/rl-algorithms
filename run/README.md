@@ -51,11 +51,11 @@ Train model by setting up a training function as seen in examples in `run/<algor
 provide hyperparamers, environment name etc.
 
 Then add this custom training function, `train_fn` to the options dictionary in `train.py`. You must 
-give it a name `<experiment>`.
+give it a name `<experiment>`. Add a line:
 
 ```options['<experiment>'] = <train_fn>```  
 
-Then to train this custom training setup, call
+Then to train this custom training setup, call from the terminal:
 
 ```python3 -m run.<algorithm>.train <experiment>```
 
@@ -78,12 +78,12 @@ eg. ```python3 -m run.dqn.run lander```
 
 Plotting the training curves from training logs can be done:
 
-```python3 -m run.<algorithm>.plot <experiment_name>```
+```python3 -m run.<algorithm>.plot <experiment_dir>```
 
 Where:
  
 `<algorithm>` is the algorithm<br/>
-`<experiment_name>` is the name of the experiment (ie. the top directory storing models) eg. `dqn_lander`<br/>
+`<experiment_dir>` is the name of the experiment directory (ie. the top directory storing logs and models) eg. `dqn-lander`<br/>
 
 
 Run 
@@ -92,6 +92,4 @@ Run
 
 for more information about options and arguments.
 
-For example:
-
-```python3 -m run.dqn.plot dqn-lander```
+eg. ```python3 -m run.dqn.plot dqn-lander```

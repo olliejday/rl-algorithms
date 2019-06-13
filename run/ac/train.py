@@ -4,11 +4,10 @@ import gym
 import os
 import argparse
 import numpy as np
-import roboschool
 
 from src.ac.ac import ActorCrtic
 from src.common.utils import set_global_seeds, TrainingLogger
-from src.common.models import FC_NN
+from src.ac.models import FC_NN
 
 
 def train(env_name, exp_name, n_experiments=3, seed=123, debug=True, n_iter=100, save_every=25, **kwargs):

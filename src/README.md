@@ -1,5 +1,7 @@
 # Reinforcement Learning Algorithms Source
 
+## Implementation Notes
+
 Some implementation notes on the included algorithms:
 
 * Vanilla Policy Gradients (VPG) / REINFORCE
@@ -16,3 +18,16 @@ Some implementation notes on the included algorithms:
     * Continuous actions only
     * Reparamaterised or REINFORCE style gradients
     * Two Q functions for greater stability (similar to Double DQN)
+
+
+## Custom Models
+
+To define custom networks, follow the example models in `models.py` for a given algorithm.
+In practice most common models can follow the structure of the
+provided models, just changing the specific layers used in them to define new networks.
+
+For example, some algorithms use subclasses of `tensorflow.keras.Model` to define 
+networks. For this you must define the model in `__init__()` or `build()` functions 
+that will be called. You must then define procedures to return outputs of a model for
+passed inputs to `call(inputs)`. More details of this subclassing can be found in 
+Tensorflow documentation. 

@@ -4,7 +4,7 @@ import time
 import os
 
 from src.vpg.utils import GradientBatchTrainer, normalise, VPGBuffer
-from src.common.models import DiscretePolicy, ContinuousPolicy
+from src.vpg.models import DiscretePolicy, ContinuousPolicy
 
 
 class VanillaPolicyGradients:
