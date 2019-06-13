@@ -364,7 +364,7 @@ class DQN():
         self.q_model.load_weights(model_path)
 
 
-def run_model(env, model_class, model_path, n_episodes=3, sleep=0.001, **kwargs):
+def run_model(env, model_class, model_path, n_episodes=3, **kwargs):
     """
     Run a saved, trained model.
     :param env: environment to run in
