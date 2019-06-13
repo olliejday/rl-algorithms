@@ -33,9 +33,18 @@ def compare_lander():
     plot_training_curves({"vpg": vpg, "sac": sac}, save_to=os.path.join(here_dir, "lander.png"))
 
 
+def compare_half_cheetah():
+    # AC logs
+    ac = os.path.join(run_dir, "ac", "experiments", "ac-half-cheetah")
+    # SAC
+    sac = os.path.join(run_dir, "sac", "experiments", "sac-half-cheetah")
+    # VPG logs
+    vpg = os.path.join(run_dir, "vpg", "experiments", "vpg-half-cheetah")
+    plot_training_curves({"ac": ac, "sac": sac, "vpg": vpg}, save_to=os.path.join(here_dir, "half-cheetah.png"))
 
 
 if __name__ == "__main__":
 #     # compare_cartpole()
 #     compare_inverted_pendulum()
-    compare_lander()
+#     compare_lander()
+    compare_half_cheetah()

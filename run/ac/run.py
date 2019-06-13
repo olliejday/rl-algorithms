@@ -30,7 +30,7 @@ def run(env,
     env.close()
 
 
-def run_cartpole(exp_name="ac-cartpole", seed=123, debug=True):
+def run_cartpole(exp_name="ac-cartpole", seed=1, debug=True):
     env = gym.make("CartPole-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
@@ -44,7 +44,7 @@ def run_inverted_pendulum(exp_name="ac-inverted-pendulum", seed=123, debug=True)
     run(env, exp_name, seed, discrete=False)
 
 
-def run_half_cheetah(exp_name="ac-half-cheetah", seed=123, debug=False):
+def run_half_cheetah(exp_name="ac-half-cheetah", seed=1, debug=False):
     env = gym.make("RoboschoolHalfCheetah-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)

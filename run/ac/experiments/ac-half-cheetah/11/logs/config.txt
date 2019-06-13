@@ -1,0 +1,15 @@
+
+                    critic_model_class: <class 'src.common.models.FC_NN'>
+                    hidden_layer_sizes: [64, 64]
+                    discrete: False
+                    learning_rate_actor: 0.01
+                    learning_rate_critic: 0.01
+                    size_actor: 64, size_critic: 64
+                    n_layers_actor: 2, n_layers_critic: 2 
+                    num_grad_steps_per_target_update: 10
+                    num_target_updates: 10
+                    max_path_length: 1000
+                    min_timesteps_per_batch: 50000
+                    reward_to_go: True
+                    gamma: 0.99
+                    normalise_advntages: True
