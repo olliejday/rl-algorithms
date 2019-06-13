@@ -51,11 +51,19 @@ def run_half_cheetah(exp_name="sac-half-cheetah", seed=1, debug=False):
     run(env, exp_name, seed)
 
 
+def run_ant(exp_name="sac-ant", seed=1, debug=False):
+    env = gym.make("RoboschoolAnt-v1")
+    set_global_seeds(seed, debug)
+    env.seed(seed)
+    run(env, exp_name, seed)
+
+
 if __name__ == "__main__":
     options = {}
     options['lander'] = run_lander
     options['inverted-pendulum'] = run_inverted_pendulum
     options['half-cheetah'] = run_half_cheetah
+    options['ant'] = run_ant
 
     parser = argparse.ArgumentParser()
     parser.add_argument("experiment", choices=options.keys())
