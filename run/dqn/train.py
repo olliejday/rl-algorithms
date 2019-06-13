@@ -228,7 +228,7 @@ def train_pong(seed=1, debug=False):
           target_update_freq=10000,
           grad_norm_clipping=10,
           delta=1.0,
-          save_every=5e5,
+          save_every=1e6,
           double_q=True,
           log_every_n_steps=10000,
           integer_observations=True)

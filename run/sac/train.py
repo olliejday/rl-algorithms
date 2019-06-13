@@ -150,7 +150,7 @@ def train_lander():
     train('LunarLanderContinuous-v2', "sac-lander", algorithm_params, n_epochs=750, save_every=350,
           seed=123, debug=True)
 
-#TODO
+
 def train_half_cheetah():
     algorithm_params = {
         'alpha': 0.2,
