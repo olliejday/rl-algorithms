@@ -177,7 +177,7 @@ def train_lander(seed=123, debug=True):
           log_every_n_steps=10000,
           integer_observations=False)
 
-#TODO
+
 def train_pong(seed=1, debug=False):
     """
     :param seed: seed to setup system

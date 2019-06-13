@@ -179,7 +179,7 @@ def train_inverted_pendulum():
     train("RoboschoolInvertedPendulum-v1", "sac-inverted-pendulum", algorithm_params, n_epochs=500, save_every=490,
           seed=1, debug=True)
 
-#TODO
+
 def train_ant():
     algorithm_params = {
         'alpha': 0.1,
