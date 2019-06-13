@@ -183,15 +183,13 @@ def train_pong(seed=1, debug=False):
     :param seed: seed to setup system
     :param debug: debug flag for seeding reproducibility vs performance
     """
-    num_timesteps = 3.25e6
-    # This is just a rough estimate
-    num_iterations = float(num_timesteps) / 4.0
+    num_timesteps = 5e6  #1e8
 
     lr_multiplier = 1.0
     lr_schedule = PiecewiseSchedule([
         (0, 1e-4 * lr_multiplier),
-        (num_iterations / 10, 1e-4 * lr_multiplier),
-        (num_iterations / 2, 5e-5 * lr_multiplier),
+        (num_timesteps / 2, 1e-4 * lr_multiplier),
+        (num_timesteps, 8.5e-5 * lr_multiplier),
     ],
         outside_value=5e-5 * lr_multiplier)
 
@@ -204,8 +202,8 @@ def train_pong(seed=1, debug=False):
     exploration = PiecewiseSchedule(
         [
             (0, 1.0),
-            (1e6, 0.1),
-            (num_iterations / 2, 0.01),
+            (num_timesteps / 5, 0.1),
+            (num_timesteps, 0.075),
         ], outside_value=0.01
     )
 
