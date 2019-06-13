@@ -183,7 +183,7 @@ def train_pong(seed=1, debug=False):
     :param seed: seed to setup system
     :param debug: debug flag for seeding reproducibility vs performance
     """
-    num_timesteps = 5e6  #1e8
+    num_timesteps = 5e6
 
     lr_multiplier = 1.0
     lr_schedule = PiecewiseSchedule([
@@ -226,7 +226,7 @@ def train_pong(seed=1, debug=False):
           target_update_freq=10000,
           grad_norm_clipping=10,
           delta=1.0,
-          save_every=3e6,
+          save_every=1e6,
           double_q=True,
           log_every_n_steps=10000,
           integer_observations=True)
