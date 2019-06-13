@@ -11,7 +11,7 @@ Example experiments (training code and parameters, trained models, logs and plot
 included are:
 
 * Vanilla Policy Gradients (VPG)
-    * CartPole-v0
+    * CartPole-v1
     * RoboschoolInvertedPendulum-v1
     * LunarLanderContinuous-v2
     * RoboschoolHalfCheetah-v1
@@ -21,10 +21,22 @@ included are:
     * LunarLander-v2
     * (on /snake branch) [snake-grid-v0](https://github.com/olliejday/snake-rl)
 
-* Actor Critic (A2C)
+* Advantage Actor Critic (A2C)
+    * RoboschoolInvertedPendulum-v1
+    * CartPole-v1
+    * RoboschoolHalfCheetah-v1
+    
+* Soft Actor Critic (SAC)
     * RoboschoolInvertedPendulum-v1
     * LunarLanderContinuous-v2
     * RoboschoolHalfCheetah-v1
+    * RoboschoolAnt-v1
+    
+For some of the environments that multiple algorithms were run on, we include plots 
+to compare the training and performance of the different algorithms. These are included
+in the /run/compare directory. They use the returns for episodes gathered during training
+so are not the most principled evaluation, but do give a good idea of the speed and 
+stability.
 
 ## Usage
 
