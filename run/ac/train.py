@@ -1,79 +1,124 @@
+import time
+from multiprocessing import Process
 import gym
 import os
 import argparse
-import roboschool
+import numpy as np
 
 from src.ac.ac import ActorCrtic
-from src.ac.utils import ACTrainingLogger
-from src.ac.models import fc
-from src.common.utils import set_global_seeds
+from src.common.utils import set_global_seeds, TrainingLogger
+from src.ac.models import FC_NN
 
 
-def train(env, exp_name, model_fn, n_iter=100, save_every=25, **kwargs):
+def train(env_name, exp_name, n_experiments=3, seed=123, debug=True, n_iter=100, save_every=25, **kwargs):
     """
-    General training setup.
-    :param env: Environment to train on
+        General training setup, just an interface to call _train() for each seed in parallel.
+
+    :param env_name: Environment to train on
     :param exp_name: Experiment name to save logs to
-    :param model_fn: Model function to call to generate the policy model (see src.ac.models)
+    :param n_experiments: number of different seeds to run
+    :param seed: Seed to run this experiment with
+    :param debug: Debug flag for training (whether to be more reproducible at expense of computation)
     :param n_iter: number of iterations to train for
     :param save_every: number of iterations to save models at
     :param kwargs: arguments to pass to AC model __init__
     """
     root_dir = os.path.dirname(os.path.realpath(__file__))
-    experiments_path = os.path.join(root_dir, "experiments", exp_name)
+    experiments_dir = os.path.join(root_dir, "experiments", exp_name)
+    assert not os.path.exists(experiments_dir), \
+        "Experiment dir {} already exists! Delete it first or use a different dir".format(experiments_dir)
 
-    ac = ActorCrtic(model_fn,
-                    env,
+    processes = []
+
+    for i in range(n_experiments):
+        seed += 10 * i
+
+        def train_func():
+            _train(env_name, exp_name, seed, debug=debug, n_iter=n_iter, save_every=save_every, **kwargs)
+
+        # # Awkward hacky process runs, because Tensorflow does not like
+        # # repeatedly calling train in the same thread.
+        p = Process(target=train_func, args=tuple())
+        p.start()
+        processes.append(p)
+        # if you comment in the line below, then the loop will block
+        # until this process finishes
+        # p.join()
+
+    for p in processes:
+        p.join()
+
+
+def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwargs):
+    """
+    Training function to be called for a process in parallel, same args as train()
+    """
+    env = gym.make(env_name)
+    set_global_seeds(seed, debug)
+    env.seed(seed)
+
+    root_dir = os.path.dirname(os.path.realpath(__file__))
+    experiments_path = os.path.join(root_dir, "experiments", exp_name, str(seed))
+
+    ac = ActorCrtic(env,
                     experiments_path=experiments_path,
                     **kwargs)
 
-    training_logger = ACTrainingLogger(experiments_path, ["Model_fn: {}".format(model_fn.__name__),
-                                                          str(ac)])
+    log_cols = ["Iteration", "StdReturn", "MaxReturn", "MinReturn", "EpLenMean", "EpLenStd", "Entropy", "KL"]
+    training_logger = TrainingLogger(experiments_path, log_cols, config=[str(ac)])
 
     ac.setup_graph()
+
+    timesteps = 0
 
     for itr in range(1, n_iter + 1):
         buffer = ac.sample_trajectories(itr)
 
-        # get one long sequence of observations and actions
-        # we keep rewards in trajectories until we discount
         obs, acs, rwds, next_obs, terminals, logprobs = buffer.get()
 
         ac.update_parameters(obs, next_obs, rwds, terminals, acs)
         approx_entropy, approx_kl = ac.training_metrics(obs, acs, logprobs)
 
-        training_logger.log(itr, [sum(r) for r in buffer.rwds], [len(r) for r in buffer.rwds], approx_entropy,
-                            approx_kl)
+        # use buffer.rwds to keep rewards in their lists of episodes
+        returns = [sum(r) for r in buffer.rwds]
+        ep_lens = [len(r) for r in buffer.rwds]
+        timesteps += np.sum(ep_lens)
+
+        training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),
+                            MeanReturn=np.mean(returns),
+                            Timesteps=timesteps,
+                            Iteration=itr,
+                            StdReturn=np.std(returns),
+                            MaxReturn=np.max(returns),
+                            MinReturn=np.min(returns),
+                            EpLenMean=np.mean(ep_lens),
+                            EpLenStd=np.std(ep_lens),
+                            Entropy=approx_entropy,
+                            KL=approx_kl
+                            )
 
         if itr % save_every == 0:
-            ac.save_model(training_logger.timesteps)
+            ac.save_model(timesteps)
 
     env.close()
 
 
-def train_cartpole(seed=123, debug=True, exp_name="ac-cartpole"):
-    env = gym.make("CartPole-v0")
-    set_global_seeds(seed, debug)
-    env.seed(seed)
-    train(env, exp_name, fc, min_timesteps_per_batch=2000,
-          n_iter=30, render_every=1000, num_target_updates=10,
+def train_cartpole(seed=1, debug=True, exp_name="ac-cartpole"):
+    train("CartPole-v1", exp_name, seed=seed, debug=debug, min_timesteps_per_batch=2000,
+          n_iter=50, render_every=1000, num_target_updates=10,
           num_grad_steps_per_target_update=10)
 
 
-def train_inverted_pendulum(seed=123, debug=True, exp_name="ac-inverted-pendulum"):
-    env = gym.make("RoboschoolInvertedPendulum-v1")
-    set_global_seeds(seed, debug)
-    env.seed(seed)
-    train(env, exp_name, fc, min_timesteps_per_batch=5000, discrete=False, learning_rate_actor=0.01,
-          learning_rate_critic=0.01, n_iter=30, gamma=0.95, render_every=1000, save_every=30)
+def train_inverted_pendulum(seed=1, debug=True, exp_name="ac-inverted-pendulum"):
+    train("RoboschoolInvertedPendulum-v1", exp_name, seed=seed, debug=debug, min_timesteps_per_batch=5000,
+          discrete=False, learning_rate_actor=0.01, learning_rate_critic=0.01, n_iter=30, gamma=0.95,
+          render_every=1000, save_every=29)
 
 
-def train_half_cheetah(seed=123, debug=False, exp_name="ac-half-cheetah"):
-    env = gym.make("RoboschoolHalfCheetah-v1")
-    set_global_seeds(seed, debug)
-    env.seed(seed)
-    train(env, exp_name, fc, discrete=False, min_timesteps_per_batch=30000, render_every=1000, gamma=0.95,
-          learning_rate_actor=0.01, learning_rate_critic=0.01)
+def train_half_cheetah(seed=1, debug=False, exp_name="ac-half-cheetah"):
+    train("RoboschoolHalfCheetah-v1", exp_name, seed=seed, debug=debug, discrete=False, min_timesteps_per_batch=50000,
+          render_every=1000, learning_rate_actor=0.005, learning_rate_critic=0.005,
+          critic_model_class=FC_NN, hidden_layer_sizes=[64, 64])
 
 
 if __name__ == "__main__":

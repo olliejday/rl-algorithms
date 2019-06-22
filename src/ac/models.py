@@ -1,25 +1,60 @@
-from keras.layers import Dense
-"""
-Model functions take:
+import tensorflow as tf
+from tensorflow.keras.layers import Dense, Flatten, Lambda
 
-input_placeholder, input placeholder to build model on
-output_size, size of the output layer
-name, the name to add to the layers
-* Optional
-n_layers, number of hidden layers
-size, the size of hidden layers
-activation, the activation to use in hidden layers
-
-And return:
-
-Model output tensor
-"""
+from src.common.utils import gather_nd, gaussian_log_likelihood
 
 
-def fc(input_placeholder, output_size, name, n_layers=2, size=64, activation="relu"):
-    x = input_placeholder
-    for i in range(n_layers):
-        x = Dense(size, activation=activation, name="{}-Dense{}".format(name, i))(x)
-    x = Dense(output_size, name="{}-Output".format(name))(x)
+class FC_NN(tf.keras.Model):
+    def __init__(self, hidden_layer_sizes, output_size, activation="relu", **kwargs):
+        super(FC_NN, self).__init__(**kwargs)
+        self.model = tf.keras.Sequential()
+        for hidden_units in hidden_layer_sizes:
+            self.model.add(Dense(hidden_units, activation=activation))
+        self.model.add(Dense(output_size, activation=None))
+        self.model.add(Lambda(lambda x: tf.squeeze(x)))
 
-    return x
+    def call(self, inputs):
+        return self.model(inputs)
+
+
+class DiscretePolicy(tf.keras.Model):
+    def __init__(self, hidden_layer_sizes, output_size, activation="relu", **kwargs):
+        super(DiscretePolicy, self).__init__(**kwargs)
+        self.model = tf.keras.Sequential()
+        for hidden_units in hidden_layer_sizes:
+            self.model.add(Dense(hidden_units, activation=activation))
+        self.model.add(Dense(output_size, activation=None))
+
+    def call(self, inputs):
+        x = self.model(inputs)
+        sampled_ac = Lambda(lambda x: tf.squeeze(tf.random.categorical(x, 1, name="sampled_ac", dtype=tf.int32),
+                                     axis=1), name="sample_ac")(x)
+        return sampled_ac
+
+    def logprob(self, inputs, acs, name="logprob_ac"):
+        # we apply a softmax to get the log probabilities in discrete case
+        x = self.model(inputs)
+        logprob = Lambda(lambda x: tf.nn.log_softmax(x), name="logprob")(x)
+        logprob_acs = Lambda(lambda x: gather_nd(x, acs, name=name), name=name)(logprob)
+        return logprob_acs
+
+
+class ContinuousPolicy(tf.keras.Model):
+    def __init__(self, hidden_layer_sizes, output_size, activation="relu", **kwargs):
+        super(ContinuousPolicy, self).__init__(**kwargs)
+        self.sy_logstd = tf.get_variable(name="log_std", shape=[output_size])
+        self.model = tf.keras.Sequential()
+        for hidden_units in hidden_layer_sizes:
+            self.model.add(Dense(hidden_units, activation=activation))
+        self.model.add(Dense(output_size, activation=None))
+
+    def call(self, inputs):
+        x = self.model(inputs)
+        sample_z = tf.random.normal(shape=tf.shape(x))
+        sampled_ac = Lambda(lambda x: x + tf.exp(self.sy_logstd) * sample_z, name="sample_ac")(x)
+        return sampled_ac
+
+    def logprob(self, inputs, acs, name="logprob"):
+        x = self.model(inputs)
+        logprob_acs = Lambda(lambda x: gaussian_log_likelihood(acs, x, self.sy_logstd), name=name)(x)
+        return logprob_acs

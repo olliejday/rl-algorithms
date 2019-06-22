@@ -1,2 +1,0 @@
-Model_fn: DQNFCModelKeras
-batch_size: {}, gamma: {}, learning_starts: {}, learning_freq: {}, frame_history_len: {}, target_update_freq: {}, grad_norm_clipping: {}, 

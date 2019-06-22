@@ -325,89 +325,6 @@ class DQNReplayBuffer(object):
         self.done[idx] = done
 
 
-class DQNTrainingLogger:
-    """
-    Logs metrics during training
-    """
-    def __init__(self, experiments_dir, initial_logs=[""], do_plot=False):
-        """
-        Creates a training logger
-        :param log_dir: directory to save logs to, must not already exist
-        :param initial_logs: list of strings to write in separate config log eg. hyperparameters
-        """
-        # for tracking progress
-        self.best_mean_return = -float('inf')
-        self.timesteps = 0
-
-        self.mean_n = 100
-
-        # for plotting
-        self.do_plot = do_plot
-
-        log_dir = os.path.join(experiments_dir, "logs")
-        assert not os.path.exists(
-            log_dir), "Log dir %s already exists! Delete it first or use a different dir" % log_dir
-        os.makedirs(log_dir)
-        self.log_dir = log_dir
-        self.log_path = os.path.join(self.log_dir, "logs.txt")
-        self.plot_path = os.path.join(self.log_dir, "figure.png")
-        # write parameters etc to a config file
-        with open(os.path.join(self.log_dir, "config.txt"), "a") as fh:
-            for line in initial_logs:
-                fh.write(line + "\n")
-        with open(self.log_path, "a") as fh:
-            fh.write("Time, Timesteps, BestMeanReturn, MeanReturn, StdReturn, MaxReturn, MinReturn, Exploration, "
-                     "EpLenMean, EpLenStd\n")
-
-    def log(self, timesteps, returns, ep_lengths, exploration):
-        """
-        Logs metrics during training. Logs to file and prints to screen.
-        :param timesteps: Current timestep of training
-        :param returns: A set of returns from episodes during training since last log.
-        :param ep_lengths: A set of episode lengths of episodes during training since last log.
-        :param exploration: the current exploration parameter
-        """
-        if len(returns) > self.mean_n:
-            # last 100 episdoes
-            returns = returns[-self.mean_n:]
-            mean_return = np.mean(returns)
-            ep_lengths = ep_lengths[-self.mean_n:]
-            self.best_mean_return = max(self.best_mean_return, mean_return)
-        else:
-            mean_return = np.mean(returns)
-
-        self.timesteps += np.sum(ep_lengths)
-
-        print(
-            "{}, Timesteps: {}\n BestMeanReturn: {:.3f}\n MeanReturn: {:.3f}\n StdReturn: {:.3f}\n MaxReturn: {:.3f}\n"
-            " MinReturn: {:.3f}\n Exploration: {:.3f}\n EpLenMean: {:.3f}\n EpLenStd: {:.3f}\n".format(
-                time.strftime("%d/%m/%Y %H:%M:%S"),
-                timesteps,
-                self.best_mean_return,
-                mean_return,
-                np.std(returns),
-                np.max(returns),
-                np.min(returns),
-                exploration,
-                np.mean(ep_lengths),
-                np.std(ep_lengths)))
-
-        with open(self.log_path, "a") as fh:
-            fh.write(("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}\n".format(time.strftime("%d/%m/%Y %H:%M:%S"),
-                                                                        timesteps,
-                                                                        self.best_mean_return,
-                                                                        mean_return,
-                                                                        np.std(returns),
-                                                                        np.max(returns),
-                                                                        np.min(returns),
-                                                                        exploration,
-                                                                        np.mean(ep_lengths),
-                                                                        np.std(ep_lengths))))
-
-        if self.do_plot:
-            plot_training_curves(self.log_path, save_to=self.plot_path)
-
-
 def get_env(env, seed, debug):
     """
     Seeds the env and wraps in a monitor to log training.
@@ -420,7 +337,7 @@ def get_env(env, seed, debug):
     set_global_seeds(seed, debug)
     env.seed(seed)
 
-    expt_dir = '/tmp/dqn_snake/'
+    expt_dir = '/tmp/dqn_{}/'.format(seed)
     env = wrappers.Monitor(env, expt_dir, force=True)
 
     return env

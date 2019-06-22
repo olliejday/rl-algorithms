@@ -1,25 +1,20 @@
-"""
-Uses code from UC Berkeley CS294 Deep Reinforcement Learning
-"""
-
 import tensorflow as tf
 import numpy as np
 import time
 import os
-import keras.backend as keras_backend
 
-from src.vpg.utils import VPGBuffer, GradientBatchTrainer, normalise, gaussian_log_likelihood, gather_nd
+from src.vpg.utils import GradientBatchTrainer, normalise, VPGBuffer
+from src.vpg.models import DiscretePolicy, ContinuousPolicy
 
 
 class VanillaPolicyGradients:
     def __init__(self,
-                 model_fn,
                  env,
+                 hidden_layer_sizes=[64, 64],
                  experiments_path="",
                  discrete=True,
                  learning_rate=5e-3,
-                 nn_baseline=False,
-                 nn_baseline_fn=None,
+                 nn_baseline=None,
                  render_every=20,
                  max_path_length=1000,
                  min_timesteps_per_batch=10000,
@@ -34,22 +29,19 @@ class VanillaPolicyGradients:
 
         Parameters
         ----------
-        model_fn: src.vpg.models.model
-            Model to use for computing the policy, see models.py.
         env: gym.Env
             gym environment to train on.
+        hidden_layer_sizes: list
+            List of ints for the number of units to have in the hidden layers
         experiments_path: string
             path to save models to during training
         discrete: bool
             Whether the environment actions are discrete or continuous
         learning_rate: float
             Learning rate to train with.
-        nn_baseline: bool
-            Whether to use a neural network baseline when computing advantages
-        nn_baseline_fn: src.vpg.models.model
+        nn_baseline: tf.keras.Model
             Model function to compute value baseline, see models.py.
-            Ignored if nn_baseline=False.
-            Must be set if nn_baseline=True.
+            Should be __init__ and ready to call with inputs
         render_every: int
             Render an episode regularly through training to monitor progress
         max_path_length: int
@@ -74,13 +66,12 @@ class VanillaPolicyGradients:
             self.ac_dim = env.action_space.n
         else:
             self.ac_dim = env.action_space.shape[0]
-        self.model_fn = model_fn
 
         self.experiments_path = experiments_path
 
+        self.hidden_layer_sizes = hidden_layer_sizes
         self.learning_rate = learning_rate
         self.nn_baseline = nn_baseline
-        self.nn_baseline_fn = nn_baseline_fn
         self.render_every = render_every
         self.max_path_length = max_path_length
         self.min_timesteps_per_batch = min_timesteps_per_batch
@@ -96,21 +87,27 @@ class VanillaPolicyGradients:
                 print("Made model directory: {}".format(save_dir))
                 os.makedirs(save_dir)
 
-
     def __str__(self):
         """
         Define string behaviour as key parameters for logging
         """
-        to_string = "learning_rate: {}, nn_basline: {}, nn_baseline_fn: {}, " \
-                    "max_path_length: {},  min_timesteps_per_batch: {}, " \
-                    "reward_to_go: {}, gamma: {}, normalise_advntages: {}".format(self.learning_rate,
-                                                                                  self.nn_baseline,
-                                                                                  self.nn_baseline_fn,
-                                                                                  self.max_path_length,
-                                                                                  self.min_timesteps_per_batch,
-                                                                                  self.reward_to_go,
-                                                                                  self.gamma,
-                                                                                  self.normalise_advantages)
+        to_string = """
+        learning_rate: {}
+        hidden_layer_size: {}
+        nn_basline: {}
+        max_path_length: {}
+        min_timesteps_per_batch: {}
+        reward_to_go: {}
+        gamma: {}
+        normalise_advntages: {}""".format(
+            self.learning_rate,
+            self.hidden_layer_sizes,
+            self.nn_baseline,
+            self.max_path_length,
+            self.min_timesteps_per_batch,
+            self.reward_to_go,
+            self.gamma,
+            self.normalise_advantages)
         return to_string
 
     def setup_placeholders(self):
@@ -124,28 +121,19 @@ class VanillaPolicyGradients:
         # for approx KL
         self.prev_logprob_ph = tf.placeholder(shape=[None], name="prev_logprob", dtype=tf.float32)
 
-    def setup_inference(self, model_outputs):
+    def setup_inference(self):
         """
         Constructs the symbolic operation for the policy network outputs,
             which are the parameters of the policy distribution p(a|s)
         """
         if self.discrete:
-            # here model outputs are the logits
-            self.sampled_ac = tf.squeeze(tf.random.categorical(model_outputs, 1, name="sampled_ac", dtype=tf.int32),
-                                         axis=1)
-            # we apply a softmax to get the log probabilities in discrete case
-            logprob = tf.nn.log_softmax(model_outputs)
-            self.logprob_ac = gather_nd(logprob, self.acs_ph, name="logprob_ac")
-            self.logprob_sampled = gather_nd(logprob, self.sampled_ac, name="logprob_sampled")
+            self.policy = DiscretePolicy(self.hidden_layer_sizes, output_size=self.ac_dim, activation="tanh")
         else:
-            sy_mean = model_outputs
-            sy_logstd = tf.get_variable(name="log_std", shape=[self.ac_dim])
-            # get sample by sampling from standard normal then transforming
-            sample_z = tf.random.normal(shape=tf.shape(sy_mean), name="continuous_sample_z")
-            self.sampled_ac = sy_mean + tf.exp(sy_logstd) * sample_z
-            # log probability
-            self.logprob_ac = gaussian_log_likelihood(self.acs_ph, sy_mean, sy_logstd)
-            self.logprob_sampled = gaussian_log_likelihood(self.sampled_ac, sy_mean, sy_logstd)
+            self.policy = ContinuousPolicy(self.hidden_layer_sizes, output_size=self.ac_dim, activation="tanh")
+
+        self.sampled_ac = self.policy(self.obs_ph)
+        self.logprob_ac = self.policy.logprob(self.obs_ph, self.acs_ph, name="logprob_ac")
+        self.logprob_sampled = self.policy.logprob(self.obs_ph, self.sampled_ac, name="logprob_sampled")
 
     def setup_loss(self):
         """
@@ -159,9 +147,8 @@ class VanillaPolicyGradients:
         loss = - tf.reduce_mean(self.logprob_ac * self.adv_ph, name="loss")
         self.policy_batch_trainer = GradientBatchTrainer(loss, self.learning_rate)
 
-
         if self.nn_baseline:
-            self.baseline_prediction = tf.squeeze(self.nn_baseline_fn(self.obs_ph, 1))
+            self.baseline_prediction = self.nn_baseline(self.obs_ph)
             # size None because we have vector of length batch size
             self.baseline_targets_ph = tf.placeholder(tf.float32, shape=[None], name="reward_targets_nn_V")
             # baseline loss on true reward targets
@@ -176,24 +163,21 @@ class VanillaPolicyGradients:
         """
         self.setup_placeholders()
 
-        model_outputs = self.model_fn(self.obs_ph, self.ac_dim)
-        self.setup_inference(model_outputs)
+        self.setup_inference()
         self.setup_loss()
         self.init_tf()
 
     def init_tf(self):
-        # to change tf Session config, see utils.set_keras_session()
-        self.sess = keras_backend.get_session()
+        self.sess = tf.keras.backend.get_session()
         self.sess.run(tf.global_variables_initializer())
-        self.saver = tf.train.Saver()
 
     def save_model(self, timestep):
         """
         Save current policy model.
         """
         if self.experiments_path != "":
-            fpath = os.path.join(self.experiments_path, "models", "model-{}".format(timestep))
-            self.saver.save(self.sess, fpath)
+            fpath = os.path.join(self.experiments_path, "models", "model-{}.h5".format(timestep))
+            self.policy.save_weights(fpath)
 
     def load_model(self, model_path=None):
         """
@@ -201,8 +185,12 @@ class VanillaPolicyGradients:
         If no path passed, loads the latest model.
         """
         if model_path is None:
-            model_path = tf.train.latest_checkpoint(os.path.join(self.experiments_path, "models"))
-        self.saver.restore(self.sess, model_path)
+            # then get latest model
+            models_dir = os.path.join(self.experiments_path, "models")
+            model_files = os.listdir(models_dir)
+            model_number = max([int(f.split(".")[0].split("-")[1]) for f in model_files])
+            model_path = os.path.join(models_dir, "model-{}.h5".format(model_number))
+        self.policy.load_weights(model_path)
 
     def sample_trajectories(self, itr):
         """
@@ -296,11 +284,11 @@ class VanillaPolicyGradients:
             if len(baseline_preds) % self.gradient_batch_size != 0: n += 1
             for i in range(n):
                 start = i * self.gradient_batch_size
-                end = (i+1) * self.gradient_batch_size
+                end = (i + 1) * self.gradient_batch_size
 
                 # prediction from nn baseline
                 baseline_preds[start:end] = self.sess.run(self.baseline_prediction,
-                                                      feed_dict={self.obs_ph: obs[start:end]})
+                                                          feed_dict={self.obs_ph: obs[start:end]})
             # normalise to 0 mean and 1 std
             bn_norm = normalise(baseline_preds)
             # set to q mean and std
@@ -352,29 +340,24 @@ class VanillaPolicyGradients:
                                                    self.adv_ph: advs},
                                         batch_size=self.gradient_batch_size,
                                         sess=self.sess)
-        # self.sess.run(self.update_op, feed_dict={self.obs_ph: obs,
-        #                                            self.acs_ph: acs,
-        #                                            self.adv_ph: advs})
         approx_kl = self.sess.run(self.approx_kl,
-                                     feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
-                                                self.acs_ph: acs[:self.gradient_batch_size],
-                                                self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
+                                  feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
+                                             self.acs_ph: acs[:self.gradient_batch_size],
+                                             self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
         return approx_entropy, approx_kl
 
 
-def run_model(env, model_fn, experiments_path, model_path=None, n_episodes=3, **kwargs):
+def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):
     """
     Run a saved, trained model.
     :param env: environment to run in
-    :param model_fn: the model function to setup the policy with
     :param experiments_path: the path to the experiments directory, with logs and models
     :param model_path: file path of model to run, if None then latest model in experiments_path is loaded
     :param n_episodes: number of episodes to run
     :param **kwargs: for VPG setup
     """
 
-    vpg = VanillaPolicyGradients(model_fn,
-                                 env,
+    vpg = VanillaPolicyGradients(env,
                                  experiments_path=experiments_path,
                                  **kwargs)
     vpg.setup_graph()
