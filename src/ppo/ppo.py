@@ -4,8 +4,8 @@ import time
 import os
 import gym
 
-from src.vpg.utils import GradientBatchTrainer, normalise, VPGBuffer
-from src.vpg.models import DiscretePolicy, ContinuousPolicy, FC_NN
+from src.ppo.utils import normalise, PPOBuffer
+from src.ppo.models import DiscretePolicy, ContinuousPolicy, FC_NN
 
 
 class ProximalPolicyOptimisation:
@@ -204,7 +204,7 @@ class ProximalPolicyOptimisation:
         Collect paths until we have enough timesteps.
         Returns VPGBuffer() of experience.
         """
-        buffer = VPGBuffer()
+        buffer = PPOBuffer()
         while True:
             animate_this_episode = (buffer.length == -1 and itr % self.render_every == 0)
             self.sample_trajectory(buffer, animate_this_episode)
@@ -360,14 +360,14 @@ def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):
     :param **kwargs: for VPG setup
     """
 
-    vpg = ProximalPolicyOptimisation(env,
+    ppo = ProximalPolicyOptimisation(env,
                                      experiments_path=experiments_path,
                                      **kwargs)
-    vpg.setup_graph()
-    vpg.load_model(model_path)
+    ppo.setup_graph()
+    ppo.load_model(model_path)
 
     for i in range(n_episodes):
-        buffer = VPGBuffer()
-        vpg.sample_trajectory(buffer, True)
+        buffer = PPOBuffer()
+        ppo.sample_trajectory(buffer, True)
 
         print("Reward: {}".format(sum(buffer.rwds[0])))
