@@ -1,0 +1,9 @@
+
+        learning_rate: 0.005
+        hidden_layer_size: [64, 64]
+        nn_basline: <src.ppo.models.FC_NN object at 0x7f1f85e8b278>
+        max_path_length: 1000
+        min_timesteps_per_batch: 5000
+        reward_to_go: True
+        gamma: 0.95
+        normalise_advntages: True

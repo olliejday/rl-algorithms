@@ -3,6 +3,7 @@ import os
 import argparse
 import time
 import numpy as np
+import roboschool
 from multiprocessing import Process
 
 from src.vpg.vpg import VanillaPolicyGradients

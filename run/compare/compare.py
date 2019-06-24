@@ -23,7 +23,9 @@ def compare_inverted_pendulum():
     sac = os.path.join(run_dir, "sac", "experiments", "sac-inverted-pendulum")
     # VPG logs
     vpg = os.path.join(run_dir, "vpg", "experiments", "vpg-inverted-pendulum")
-    plot_training_curves({"ac": ac, "sac": sac, "vpg": vpg}, save_to=os.path.join(here_dir, "inverted-pendulum.png"))
+    # PPO logs
+    ppo = os.path.join(run_dir, "ppo", "experiments", "ppo-inverted-pendulum")
+    plot_training_curves({"ac": ac, "sac": sac, "vpg": vpg, "ppo": ppo}, save_to=os.path.join(here_dir, "inverted-pendulum.png"))
 
 
 def compare_lander():
@@ -46,7 +48,7 @@ def compare_half_cheetah():
 
 
 if __name__ == "__main__":
-    compare_cartpole()
-#     compare_inverted_pendulum()
+    # compare_cartpole()
+    compare_inverted_pendulum()
 #     compare_lander()
 #     compare_half_cheetah()

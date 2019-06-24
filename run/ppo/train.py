@@ -3,6 +3,7 @@ import os
 import argparse
 import time
 import numpy as np
+import roboschool
 from multiprocessing import Process
 
 from src.ppo.ppo import ProximalPolicyOptimisation
@@ -107,7 +108,7 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
 
     env.close()
 
-# TODO: train all these, plot, plot comparisons
+# TODO: train all these -- on longjob?? on colab??, plot, plot comparisons
 
 
 def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="ppo-cartpole"):
@@ -117,8 +118,9 @@ def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="ppo-cartpole")
 
 
 def train_inverted_pendulum(n_experiments=3, seed=1, debug=True, exp_name="ppo-inverted-pendulum"):
+    nn_baseline = FC_NN([64, 64], 1)
     train("RoboschoolInvertedPendulum-v1", exp_name, n_experiments, seed=seed, debug=debug,
-          nn_baseline=None, min_timesteps_per_batch=5000,
+          nn_baseline=nn_baseline, min_timesteps_per_batch=5000,
           learning_rate=0.005, n_iter=50, gamma=0.95, render_every=1000, save_every=45)
 
 
