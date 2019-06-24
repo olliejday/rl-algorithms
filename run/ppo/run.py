@@ -34,28 +34,28 @@ def run_cartpole(exp_name="ppo-cartpole", seed=1, debug=True):
     env = gym.make("CartPole-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    run(env, exp_name, seed, discrete=True)
+    run(env, exp_name, seed)
 
 
 def run_inverted_pendulum(exp_name="ppo-inverted-pendulum", seed=1, debug=True):
     env = gym.make("RoboschoolInvertedPendulum-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    run(env, exp_name, seed, discrete=False)
+    run(env, exp_name, seed)
 
 
 def run_lander(exp_name="ppo-lander", seed=123, debug=True):
     env = gym.make("LunarLanderContinuous-v2")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    run(env, exp_name, seed, discrete=False)
+    run(env, exp_name, seed)
 
 
 def run_half_cheetah(exp_name="ppo-half-cheetah", seed=1, debug=False):
     env = gym.make("RoboschoolHalfCheetah-v1")
     set_global_seeds(seed, debug)
     env.seed(seed)
-    run(env, exp_name, seed, discrete=False)
+    run(env, exp_name, seed)
 
 
 if __name__ == "__main__":

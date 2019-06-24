@@ -5,7 +5,7 @@ import os
 import gym
 
 from src.ppo.utils import normalise, PPOBuffer
-from src.ppo.models import DiscretePolicy, ContinuousPolicy, FC_NN
+from src.ppo.models import DiscretePolicy, ContinuousPolicy
 
 
 class ProximalPolicyOptimisation:
@@ -15,7 +15,7 @@ class ProximalPolicyOptimisation:
                  experiments_path="",
                  learning_rate=5e-3,
                  clip_ratio=0.1,
-                 nn_baseline=FC_NN,
+                 nn_baseline=None,
                  render_every=20,
                  max_path_length=1000,
                  min_timesteps_per_batch=10000,
@@ -146,9 +146,9 @@ class ProximalPolicyOptimisation:
         self.approx_entropy = tf.reduce_mean(-self.logprob_ac)
 
         # the PPO gradient loss, we use the equivalent simplified version
-        loss_values = (self.logprob_ac / self.prev_logprob_ph) * self.adv_ph
-        mask = tf.where(self.adv_ph >= 0)
-        clip_values = mask * (1 + self.clip_ratio) * self.adv_ph + (not mask) * (1 - self.clip_ratio) * self.adv_ph
+        prob_ratio = tf.exp(self.logprob_ac - self.prev_logprob_ph)
+        loss_values = prob_ratio * self.adv_ph
+        clip_values = tf.where(self.adv_ph > 0, (1 + self.clip_ratio) * self.adv_ph, (1 - self.clip_ratio) * self.adv_ph)
         loss = - tf.reduce_mean(tf.minimum(loss_values, clip_values), name="loss")
         optimizer = tf.train.AdamOptimizer(self.learning_rate)
         self.policy_update = optimizer.minimize(loss)
@@ -341,8 +341,9 @@ class ProximalPolicyOptimisation:
                                                   self.acs_ph: acs[:self.gradient_batch_size]})
         # Performing the Policy Update
         self.sess.run(self.policy_update, feed_dict={self.obs_ph: obs,
-                                                   self.acs_ph: acs,
-                                                   self.adv_ph: advs})
+                                                     self.acs_ph: acs,
+                                                     self.adv_ph: advs,
+                                                     self.prev_logprob_ph: logprobs})
         approx_kl = self.sess.run(self.approx_kl,
                                   feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
                                              self.acs_ph: acs[:self.gradient_batch_size],
