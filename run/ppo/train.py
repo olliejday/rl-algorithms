@@ -109,7 +109,8 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
     env.close()
 
 # TODO: train all these -- on longjob?? on colab??, plot, plot comparisons
-
+#   Longjob of this setup, lander, running on DICE
+#   Running this setup half-cheetah on colab
 
 def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="ppo-cartpole"):
     nn_baseline = FC_NN([64, 64], 1)
