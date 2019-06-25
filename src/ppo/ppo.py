@@ -22,7 +22,6 @@ class ProximalPolicyOptimisation:
                  reward_to_go=True,
                  gamma=0.99,
                  normalise_advantages=True,
-                 gradient_batch_size=1000
                  ):
 
         """
@@ -55,9 +54,6 @@ class ProximalPolicyOptimisation:
             Discount rate
         normalise_advantages: bool
             Whether to normalise advantages.
-        gradient_batch_size: int
-            To split a batch into mini-batches which the gradient is averaged over to allow larger
-            min_timesteps_per_batch than fits into GPU memory in one go.
         """
         self.env = env
         # Is this env continuous, or self.discrete?
@@ -80,7 +76,6 @@ class ProximalPolicyOptimisation:
         self.reward_to_go = reward_to_go
         self.gamma = gamma
         self.normalise_advantages = normalise_advantages
-        self.gradient_batch_size = gradient_batch_size
 
         # make directory to save models
         if self.experiments_path != "":
@@ -286,16 +281,7 @@ class ProximalPolicyOptimisation:
         # Computing Baselines
         if self.nn_baseline:
             # prediction from nn baseline
-            baseline_preds = np.zeros_like(qs)
-            n = int(len(baseline_preds) / self.gradient_batch_size)
-            if len(baseline_preds) % self.gradient_batch_size != 0: n += 1
-            for i in range(n):
-                start = i * self.gradient_batch_size
-                end = (i + 1) * self.gradient_batch_size
-
-                # prediction from nn baseline
-                baseline_preds[start:end] = self.sess.run(self.baseline_prediction,
-                                                          feed_dict={self.obs_ph: obs[start:end]})
+            baseline_preds = self.sess.run(self.baseline_prediction, feed_dict={self.obs_ph: obs})
             # normalise to 0 mean and 1 std
             bn_norm = normalise(baseline_preds)
             # set to q mean and std
@@ -337,17 +323,17 @@ class ProximalPolicyOptimisation:
                                                            self.baseline_targets_ph: target_n})
         # compute entropy before update
         approx_entropy = self.sess.run(self.approx_entropy,
-                                       feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
-                                                  self.acs_ph: acs[:self.gradient_batch_size]})
+                                       feed_dict={self.obs_ph: obs,
+                                                  self.acs_ph: acs})
         # Performing the Policy Update
         self.sess.run(self.policy_update, feed_dict={self.obs_ph: obs,
                                                      self.acs_ph: acs,
                                                      self.adv_ph: advs,
                                                      self.prev_logprob_ph: logprobs})
         approx_kl = self.sess.run(self.approx_kl,
-                                  feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
-                                             self.acs_ph: acs[:self.gradient_batch_size],
-                                             self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
+                                  feed_dict={self.obs_ph: obs,
+                                             self.acs_ph: acs,
+                                             self.prev_logprob_ph: logprobs})
         return approx_entropy, approx_kl
 
 
