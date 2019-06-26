@@ -46,11 +46,13 @@ def compare_half_cheetah():
     sac = os.path.join(run_dir, "sac", "experiments", "sac-half-cheetah")
     # VPG logs
     vpg = os.path.join(run_dir, "vpg", "experiments", "vpg-half-cheetah")
-    plot_training_curves({"ac": ac, "sac": sac, "vpg": vpg}, save_to=os.path.join(here_dir, "half-cheetah.png"))
+    # PPO
+    ppo = os.path.join(run_dir, "ppo", "experiments", "ppo-half-cheetah")
+    plot_training_curves({"ac": ac, "sac": sac, "vpg": vpg, "ppo": ppo}, save_to=os.path.join(here_dir, "half-cheetah.png"))
 
 
 if __name__ == "__main__":
     # compare_cartpole()
     # compare_inverted_pendulum()
     compare_lander()
-#     compare_half_cheetah()
+    compare_half_cheetah()
