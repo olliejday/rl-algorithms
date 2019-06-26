@@ -32,6 +32,12 @@ included are:
     * RoboschoolHalfCheetah-v1
     * RoboschoolAnt-v1
     
+* Proximal Policy Optimization (PPO)
+    * CartPole-v1
+    * RoboschoolInvertedPendulum-v1
+    * LunarLanderContinuous-v2
+    * RoboschoolHalfCheetah-v1
+    
     
 All experiments (except some that are highly expensive to run), are run over three random
 seeds. Plots then show mean and standard deviation across seeds to give a more reliable

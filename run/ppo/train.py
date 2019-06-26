@@ -6,8 +6,8 @@ import numpy as np
 import roboschool
 from multiprocessing import Process
 
-from src.vpg.vpg import VanillaPolicyGradients
-from src.vpg.models import FC_NN
+from src.ppo.ppo import ProximalPolicyOptimisation
+from src.ppo.models import FC_NN
 from src.common.utils import set_global_seeds, TrainingLogger
 
 
@@ -62,19 +62,19 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
     root_dir = os.path.dirname(os.path.realpath(__file__))
     experiments_path = os.path.join(root_dir, "experiments", exp_name, str(seed))
 
-    vpg = VanillaPolicyGradients(env,
+    ppo = ProximalPolicyOptimisation(env,
                                  experiments_path=experiments_path,
                                  **kwargs)
 
     log_cols = ["Iteration", "StdReturn", "MaxReturn", "MinReturn", "EpLenMean", "EpLenStd", "Entropy", "KL"]
-    training_logger = TrainingLogger(experiments_path, log_cols, config=[str(vpg)])
+    training_logger = TrainingLogger(experiments_path, log_cols, config=[str(ppo)])
 
-    vpg.setup_graph()
+    ppo.setup_graph()
 
     timesteps = 0
 
     for itr in range(1, n_iter + 1):
-        buffer = vpg.sample_trajectories(itr)
+        buffer = ppo.sample_trajectories(itr)
 
         # get one long sequence of observations and actions
         # we keep rewards in trajectories until we discount
@@ -83,8 +83,8 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
         logprobs = buffer.get_logprobs()
         rwds = buffer.rwds
 
-        q_n, adv_n = vpg.estimate_return(obs, rwds)
-        approx_entropy, approx_kl = vpg.update_parameters(obs, acs, q_n, adv_n, logprobs)
+        q_n, adv_n = ppo.estimate_return(obs, rwds)
+        approx_entropy, approx_kl = ppo.update_parameters(obs, acs, q_n, adv_n, logprobs)
 
         returns = [sum(r) for r in rwds]
         ep_lens = [len(r) for r in rwds]
@@ -104,35 +104,37 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
                             )
 
         if itr % save_every == 0:
-            vpg.save_model(timesteps)
+            ppo.save_model(timesteps)
 
     env.close()
 
+# TODO: train all these -- on longjob?? on colab??, plot, plot comparisons
+#   Longjob of this setup, lander, running on DICE
+#   Running this setup half-cheetah on colab
 
-def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="vpg-cartpole"):
+def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="ppo-cartpole"):
     nn_baseline = FC_NN([64, 64], 1)
     train("CartPole-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
-          min_timesteps_per_batch=2500, learning_rate=0.01, n_iter=30, render_every=1000)
+          min_timesteps_per_batch=2500, learning_rate=0.02, n_iter=25, render_every=1000)
 
 
-def train_inverted_pendulum(n_experiments=3, seed=1, debug=True, exp_name="vpg-inverted-pendulum"):
+def train_inverted_pendulum(n_experiments=3, seed=1, debug=True, exp_name="ppo-inverted-pendulum"):
+    nn_baseline = FC_NN([64, 64], 1)
     train("RoboschoolInvertedPendulum-v1", exp_name, n_experiments, seed=seed, debug=debug,
-          nn_baseline=None, min_timesteps_per_batch=5000,
-          discrete=False, learning_rate=0.005, n_iter=50, gamma=0.95, render_every=1000, save_every=45)
+          nn_baseline=nn_baseline, min_timesteps_per_batch=5000,
+          learning_rate=0.005, n_iter=50, gamma=0.95, render_every=1000, save_every=45)
 
 
-def train_lander(n_experiments=3, seed=123, debug=False, exp_name="vpg-lander"):
+def train_lander(n_experiments=3, seed=123, debug=False, exp_name="ppo-lander"):
     nn_baseline = FC_NN([64, 64], 1)
     train("LunarLanderContinuous-v2", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
-          discrete=False, min_timesteps_per_batch=40000, learning_rate=0.01, gradient_batch_size=40000,
-          render_every=1000, save_every=90)
+          min_timesteps_per_batch=40000, learning_rate=0.005, render_every=1000, save_every=90)
 
 
-def train_half_cheetah(n_experiments=3, seed=1, debug=False, exp_name="vpg-half-cheetah"):
+def train_half_cheetah(n_experiments=3, seed=1, debug=False, exp_name="ppo-half-cheetah"):
     nn_baseline = FC_NN([64, 64], 1)
     train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
-          discrete=False, min_timesteps_per_batch=50000, learning_rate=0.01, gradient_batch_size=50000,
-          render_every=1000, save_every=90)
+          min_timesteps_per_batch=50000, learning_rate=0.01, render_every=1000, save_every=90)
 
 
 if __name__ == "__main__":

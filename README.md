@@ -15,6 +15,7 @@ See run/README.md for details of how to run and some example experiments.
 * Deep Q-Networks (DQN)
 * Advantage Actor Critic (A2C)
 * Soft Actor Critic (SAC)
+* Proximal Policy Optimization (PPO)
 
 ## Dependencies
 
@@ -34,6 +35,7 @@ This repo is built on research work:
 [3] Asynchronous Methods for Deep Reinforcement Learning, Mnih et al, 2016. Algorithm: A2C. <br/>
 [4] Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor, 
 Haarnoja et al, 2018. <br/>
+[5] Proximal Policy Optimization Algorithms, Schulman et al, 2017. <br/>
 
 And code from:
 
