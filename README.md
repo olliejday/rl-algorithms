@@ -36,6 +36,7 @@ This repo is built on research work:
 [4] Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor, 
 Haarnoja et al, 2018. <br/>
 [5] Proximal Policy Optimization Algorithms, Schulman et al, 2017. <br/>
+[6] High-Dimensional Continuous Control Using Generalized Advantage Estimation, Schulman et al, 2015. <br/>
 
 And code from:
 

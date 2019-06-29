@@ -9,106 +9,20 @@ def normalise(x):
     return (x - np.mean(x)) / (np.std(x) + 1e-8)
 
 
-class GradientBatchTrainer:
+def reward_to_go(rwds, gamma):
     """
-    Setup update op such that we can apply gradient in batches.
-    Because we want to use large batch sizes, but this can be too big for GPU memory, so we
-    want to compute gradients in batches then sum them to update.
-    From: https://stackoverflow.com/questions/42156957/how-to-update-model-parameters-with-accumulated-gradients
+    Computes discounted sum of rewards.
+    Uses reward to go, ie. each timestep's return is the sum of discounted rewards from
+    then until end.
+
+    :param rwds: a list returns
+    :param gamma: discount parameter
+    :return: discounted reward sequences
     """
-    def __init__(self, loss_op, learning_rate, average_gradient_batches=True):
-        """
-        Sets up the gradient batching and averaging TF operations.
-        :param loss_op: Loss to optimise
-        :param learning_rate: learning rate to use for optimiser
-        :param average_gradient_batches: whether to average the gradient over batches, otherwise it is summed
-        """
-        optimizer = tf.train.AdamOptimizer(learning_rate)
-        # Fetch a list of our network's trainable parameters.
-        trainable_vars = tf.trainable_variables()
-        # Create variables to store accumulated gradients
-        accumulators = [
-            tf.Variable(
-                tf.zeros_like(tv.initialized_value()),
-                trainable=False
-            ) for tv in trainable_vars
-        ]
-        # Compute gradients; grad_pairs contains (gradient, variable) pairs
-        grad_pairs = optimizer.compute_gradients(loss_op, trainable_vars)
-        # Create operations which add a variable's gradient to its accumulator.
-        self.accumulate_ops = [
-            accumulator.assign_add(
-                grad
-            ) for (accumulator, (grad, var)) in zip(accumulators, grad_pairs)
-            if grad is not None and var is not None
-        ]
-
-        if average_gradient_batches:
-            # Create a variable for counting the number of accumulations
-            accumulation_counter = tf.Variable(0.0, trainable=False)
-            # The final accumulation operation is to increment the counter
-            self.accumulate_ops.append(accumulation_counter.assign_add(1.0))
-
-        # Update trainable variables by applying the accumulated gradients
-        # divided by the counter. Note: apply_gradients takes in a list of
-        # (grad, var) pairs
-        self.train_step = optimizer.apply_gradients(
-            [(accumulator, var) \
-             for (accumulator, (grad, var)) in zip(accumulators, grad_pairs)]
-        )
-        # Accumulators must be zeroed once the accumulated gradient is applied.
-        self.zero_ops = [
-            accumulator.assign(
-                tf.zeros_like(tv)
-            ) for (accumulator, tv) in zip(accumulators, trainable_vars)
-        ]
-
-    def get_batches(self, data, batch_size):
-        """
-        Returns data split into an array of batches of size batch_size.
-        If the batch size does not exactly fit, we only include the extra if it's at least
-        half a batch size (otherwise we get noisy gradients)
-        """
-        n = int(len(data) / batch_size)
-        if len(data) % batch_size != 0 and (len(data) / batch_size) - int(len(data) / batch_size) > 0.5:
-            return [data[i * batch_size:(i + 1) * batch_size] for i in range(n)] + [data[n * batch_size:]]
-        else:
-            # otherwise must exactly divide or have less than half a batch
-            return [data[i:i + batch_size] for i in range(n)]
-
-    def get_feed_dicts(self, feed_dict, batch_size):
-        """
-        Takes a feed_dict, TF style dictionary with keys of TF placeholders and values as data.
-        Yields a batch at a time in the same dictionary format (same keys) but where values are now a single batch.
-        """
-        # batch each placeholder's data
-        for k, v in feed_dict.items():
-            feed_dict[k] = self.get_batches(v, batch_size)
-
-        # get a TF feed_dict style dictionary of a data batch for each placeholder
-        def sort_name(elem):
-            return elem.__str__()
-
-        sorted_dict = list(zip(*sorted(feed_dict.items(), key=sort_name)))
-        sorted_keys = sorted_dict[0]
-        sorted_vals = sorted_dict[1]
-        for x in zip(*sorted_vals):
-            feed_dict = {}
-            for i, k in enumerate(sorted_keys):
-                feed_dict[k] = x[i]
-            yield feed_dict
-
-    def train(self, feed_dict, batch_size, sess):
-        """
-        The training call on the gradient batch trainer.
-        :param feed_dict: TF style feed_dict with keys of TF placeholders and values as data.
-        :param batch_size: batch size to batch data into (batch must fit into CPU/GPU memory)
-        :param sess: TF session to run on.
-        """
-        sess.run(self.zero_ops)
-        for fd in self.get_feed_dicts(feed_dict, batch_size):
-            sess.run(self.accumulate_ops, feed_dict=fd)
-        sess.run(self.train_step)
+    # discount vector
+    discount = np.array([gamma ** i for i in range(len(rwds)+1)])
+    rwds_to_go = [np.dot(discount[:-i-1], rwds[i:]) for i in range(len(rwds))]
+    return rwds_to_go
 
 
 class PPOBuffer:
@@ -118,23 +32,24 @@ class PPOBuffer:
 
     def __init__(self):
         """
-        Starts uninitialised to -1s and empty lists.
-        Call next() to initialise before use.
+        Setup empty buffer
         """
-        self.length = -1
-        self.obs = []
-        self.acs = []
-        self.rwds = []
-        self.logprobs = []
-        self.ptr = -1
+        self.length = 0
+        self.obs = [[]]
+        self.acs = [[]]
+        self.rwds = [[]]
+        self.logprobs = [[]]
+        self.vals = [[]]  # value function estimates
+        self.ptr = 0
 
-    def add(self, ob, ac, rwd, lgprb):
+    def add(self, ob, ac, rwd, lgprb, val):
         """
         Add s, a, r and logprob to buffer for this trajectory
         :param ob: state or observation
         :param ac: action taked
         :param rwd: reward
         :param lgprb: log prob of action taken
+        :param val: value function estimate for this state
         """
 
         self.length += 1
@@ -143,17 +58,33 @@ class PPOBuffer:
         self.acs[self.ptr].append(ac)
         self.rwds[self.ptr].append(rwd)
         self.logprobs[self.ptr].append(lgprb)
+        self.vals[self.ptr].append(val)
 
     def next(self):
         """
         End of a trajectory, setup for next trajectory.
-        Also call to initialise.
         """
         self.obs.append([])
         self.acs.append([])
         self.rwds.append([])
         self.logprobs.append([])
+        self.vals.append([])
         self.ptr += 1
+
+    def done(self):
+        """
+        If we finish an episode, add a 0 last value for terminal state.
+        """
+        self.rwds[self.ptr].append(0)
+        self.vals[self.ptr].append(0)
+
+    def early_stop(self, val):
+        """
+        If we finish an episode early, add a value function estimate to bootstrap the rest
+        of the episode.
+        """
+        self.rwds[self.ptr].append(val)
+        self.vals[self.ptr].append(val)
 
     """
     Getters to return observations, actions and log probs for all trajectories concatenated into 
@@ -168,3 +99,18 @@ class PPOBuffer:
 
     def get_logprobs(self):
         return np.concatenate([x for x in self.logprobs])
+
+    def get_gae(self, gamma, gae_lambda):
+        """
+        Computes the discounted rewards to go, and the normalised GAE advantage estimates.
+        :param gamma: discount rate
+        :param gae_lambda: GAE lambda parameter
+        :return: rewards, advantages
+        """
+        deltas = [self.rwds[i][:-1] + gamma * np.array(self.vals[i][1:]) - self.vals[i][:-1] for i in range(len(self.rwds))]
+        advs = normalise(np.hstack([reward_to_go(delta, gamma * gae_lambda) for delta in deltas]))
+        # we want to include the terminal value reward / estimate in the discount computation but not
+        # include it as a reward itself for the updates.
+        rwds = np.hstack([reward_to_go(rwd, gamma)[:-1] for rwd in self.rwds])
+
+        return rwds, advs

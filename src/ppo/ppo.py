@@ -4,7 +4,7 @@ import time
 import os
 import gym
 
-from src.ppo.utils import normalise, PPOBuffer
+from src.ppo.utils import PPOBuffer
 from src.ppo.models import DiscretePolicy, ContinuousPolicy
 
 
@@ -13,14 +13,17 @@ class ProximalPolicyOptimisation:
                  env,
                  hidden_layer_sizes=[64, 64],
                  experiments_path="",
-                 learning_rate=5e-3,
-                 clip_ratio=0.1,
-                 nn_baseline=None,
+                 policy_learning_rate=5e-3,
+                 value_fn_learning_rate=1e-2,
+                 n_policy_updates=15,
+                 n_value_updates=15,
+                 clip_ratio=0.2,
+                 value_fn_class=None,
                  render_every=20,
                  max_path_length=1000,
                  min_timesteps_per_batch=10000,
-                 reward_to_go=True,
                  gamma=0.99,
+                 gae_lambda=0.975,
                  normalise_advantages=True,
                  ):
 
@@ -35,12 +38,18 @@ class ProximalPolicyOptimisation:
             List of ints for the number of units to have in the hidden layers
         experiments_path: string
             path to save models to during training
-        learning_rate: float
+        policy_learning_rate: float
+            Learning rate to train policy with.
+        value_fn_learning_rate: float
             Learning rate to train with.
+        n_policy_updates: int
+            Number of policy updates to make every update iteration
+        n_value_updates: int
+            Number of value function updates to make every update iteration
         clip_ratio: float
             Hyperparameter for clipping policy objective
-        nn_baseline: tf.keras.Model
-            Model function to compute value baseline, see models.py.
+        value_fn_class: tf.keras.Model
+            Model class to compute value function, see models.py.
             Should be __init__ and ready to call with inputs
         render_every: int
             Render an episode regularly through training to monitor progress
@@ -48,13 +57,15 @@ class ProximalPolicyOptimisation:
             Max number of timesteps in an episode before stopping.
         min_timesteps_per_batch: int
             Min number of timesteps to gather for use in training updates.
-        reward_to_go: bool
-            Whether to use reward to go or whole trajectory rewards when discounting and computing advantage.
         gamma: float
             Discount rate
+        gae_lambda: float
+            Lambda value for GAE (Between 0 and 1, close to 1)
         normalise_advantages: bool
             Whether to normalise advantages.
         """
+        assert value_fn_class is not None, "Must provide value function."
+
         self.env = env
         # Is this env continuous, or self.discrete?
         self.discrete = isinstance(self.env.action_space, gym.spaces.Discrete)
@@ -67,14 +78,17 @@ class ProximalPolicyOptimisation:
         self.experiments_path = experiments_path
 
         self.hidden_layer_sizes = hidden_layer_sizes
-        self.learning_rate = learning_rate
+        self.policy_learning_rate = policy_learning_rate
+        self.value_fn_learning_rate = value_fn_learning_rate
+        self.n_policy_updates = n_policy_updates
+        self.n_value_fn_updates = n_value_updates
         self.clip_ratio = clip_ratio
-        self.nn_baseline = nn_baseline
+        self.value_fn_class = value_fn_class
         self.render_every = render_every
         self.max_path_length = max_path_length
         self.min_timesteps_per_batch = min_timesteps_per_batch
-        self.reward_to_go = reward_to_go
         self.gamma = gamma
+        self.gae_lambda = gae_lambda
         self.normalise_advantages = normalise_advantages
 
         # make directory to save models
@@ -89,20 +103,20 @@ class ProximalPolicyOptimisation:
         Define string behaviour as key parameters for logging
         """
         to_string = """
-        learning_rate: {}
+        policy_learning_rate: {}
+        value_function_learning_rate: {}
         hidden_layer_size: {}
         nn_basline: {}
         max_path_length: {}
         min_timesteps_per_batch: {}
-        reward_to_go: {}
         gamma: {}
         normalise_advntages: {}""".format(
-            self.learning_rate,
+            self.policy_learning_rate,
+            self.value_fn_learning_rate,
             self.hidden_layer_sizes,
-            self.nn_baseline,
+            self.value_fn_class,
             self.max_path_length,
             self.min_timesteps_per_batch,
-            self.reward_to_go,
             self.gamma,
             self.normalise_advantages)
         return to_string
@@ -131,6 +145,7 @@ class ProximalPolicyOptimisation:
         self.sampled_ac = self.policy(self.obs_ph)
         self.logprob_ac = self.policy.logprob(self.obs_ph, self.acs_ph, name="logprob_ac")
         self.logprob_sampled = self.policy.logprob(self.obs_ph, self.sampled_ac, name="logprob_sampled")
+        self.value_targets = tf.placeholder(tf.float32, shape=[None], name="value_fn_targets")
 
     def setup_loss(self):
         """
@@ -145,18 +160,14 @@ class ProximalPolicyOptimisation:
         loss_values = prob_ratio * self.adv_ph
         clip_values = tf.where(self.adv_ph > 0, (1 + self.clip_ratio) * self.adv_ph, (1 - self.clip_ratio) * self.adv_ph)
         loss = - tf.reduce_mean(tf.minimum(loss_values, clip_values), name="loss")
-        optimizer = tf.train.AdamOptimizer(self.learning_rate)
+        optimizer = tf.train.AdamOptimizer(self.policy_learning_rate)
         self.policy_update = optimizer.minimize(loss)
 
-        if self.nn_baseline:
-            self.baseline_prediction = self.nn_baseline(self.obs_ph)
-            # size None because we have vector of length batch size
-            self.baseline_targets_ph = tf.placeholder(tf.float32, shape=[None], name="reward_targets_nn_V")
-            # baseline loss on true reward targets
-            baseline_loss = 0.5 * tf.reduce_sum((self.baseline_prediction - self.baseline_targets_ph) ** 2,
-                                                name="nn_baseline_loss")
-            baseline_optimizer = tf.train.AdamOptimizer(self.learning_rate)
-            self.baseline_update = baseline_optimizer.minimize(baseline_loss)
+        self.value_fn_prediction = self.value_fn_class(self.obs_ph)
+        value_loss = 0.5 * tf.reduce_sum((self.value_fn_prediction - self.value_targets) ** 2,
+                                            name="value_fn_loss")
+        val_optimizer = tf.train.AdamOptimizer(self.value_fn_learning_rate)
+        self.value_fn_update = val_optimizer.minimize(value_loss)
 
     def setup_graph(self):
         """
@@ -205,13 +216,13 @@ class ProximalPolicyOptimisation:
             self.sample_trajectory(buffer, animate_this_episode)
             if buffer.length > self.min_timesteps_per_batch:
                 break
+            buffer.next()
         return buffer
 
     def sample_trajectory(self, buffer, render):
         """
         Updates buffer with one episode of experience, rendering the episode if render flag set True.
         """
-        buffer.next()
         ob_ = self.env.reset()
         steps = 0
         while True:
@@ -219,117 +230,41 @@ class ProximalPolicyOptimisation:
             if render:
                 self.env.render()
                 time.sleep(0.01)
-            ac, logprob = self.sess.run([self.sampled_ac, self.logprob_sampled],
-                                        feed_dict={self.obs_ph: np.array([ob])})
+            ac, logprob, val = self.sess.run([self.sampled_ac, self.logprob_sampled, self.value_fn_prediction],
+                                             feed_dict={self.obs_ph: np.array([ob])})
             ac = ac[0]
             logprob = logprob[0]
             ob_, rew, done, _ = self.env.step(ac)
-            buffer.add(ob, ac, rew, logprob)
+            buffer.add(ob, ac, rew, logprob, val)
             steps += 1
-            if done or steps >= self.max_path_length:
+            if done:
+                # for GAE if we get to terminal state we wrap the episode.
+                buffer.done()
+                break
+            if steps >= self.max_path_length:
+                # for GAE pass the estimated value if we finish early.
+                buffer.early_stop(self.value_fn_class.predict(ob_))
                 break
 
-    def sum_of_rewards(self, rwds):
+    def update_parameters(self, obs, acs, rwds, advs, logprobs):
         """
-        Monte Carlo estimation of the Q function.
-
-        Computes discounted sum of rewards for a list of lists of returns each trajectory.
-
-        Reward to go :
-            In this case use reward to go, ie. each timestep's return is the sum of discounted rewards from
-            then until end.
-        Otherwise:
-            In this case use full sum of discounted rewards as the return for each timestep
-
-        Returns qs (discounted reward sequences)
-        """
-        if self.reward_to_go:
-            # make discount matrix for longest trajectory, N, it's a triangle matrix to offset the timesteps:
-            # [gamma^0 gamma^1 ... gamma^N]
-            # [ 0 gamma^0 ... gamma^N-1]
-            # ...
-            # [ 0 0 0 0 ... gamma^0]
-
-            longest_trajectory = max([len(r) for r in rwds])
-            discount = np.triu(
-                [[self.gamma ** (i - j) for i in range(longest_trajectory)] for j in range(longest_trajectory)])
-            qs = []
-            for re in rwds:
-                # each reward is multiplied
-                discounted_re = np.dot(discount[:len(re), : len(re)], re)
-                qs.append(discounted_re)
-        else:
-            # get discount vector for longest trajectory
-            longest_trajectory = max([len(r) for r in rwds])
-            discount = np.array([self.gamma ** i for i in range(longest_trajectory)])
-            qs = []
-            for re in rwds:
-                # np.dot compute the sum of discounted rewards, then we make this into a vector for the
-                # full discounted reward case
-                disctounted_re = np.ones_like(re) * np.dot(re, discount[:len(re)])
-                qs.append(disctounted_re)
-        qs = np.hstack(qs)
-        return qs
-
-    def compute_advantage(self, obs, qs):
-        """
-        If using neural network baseline then here we compute the estimated values and adjust the sums of rewards
-        to compute advantages.
-
-        Returns advs (advantage estimates)
-        """
-        # Computing Baselines
-        if self.nn_baseline:
-            # prediction from nn baseline
-            baseline_preds = self.sess.run(self.baseline_prediction, feed_dict={self.obs_ph: obs})
-            # normalise to 0 mean and 1 std
-            bn_norm = normalise(baseline_preds)
-            # set to q mean and std
-            qs_mean = np.mean(qs)
-            qs_std = np.std(qs)
-            bn_norm = bn_norm * qs_std + qs_mean
-
-            advs = qs - bn_norm
-        else:
-            advs = qs.copy()
-        return advs
-
-    def estimate_return(self, obs, rews):
-        """
-        Estimates the returns over a set of trajectories.
-        Can normalise advantaged to reduce variance.
-
-        Returns q_n, adv_n (disctounted sum of rewards, advantaged estimates)
-        """
-        q_n = self.sum_of_rewards(rews)
-        adv_n = self.compute_advantage(obs, q_n)
-        if self.normalise_advantages:
-            # On the next line, implement a trick which is known empirically to reduce variance
-            # in policy gradient methods: normalize adv_n to have mean zero and std=1.
-            adv_n = normalise(adv_n)
-        return q_n, adv_n
-
-    def update_parameters(self, obs, acs, qs, advs, logprobs):
-        """
-        Update function to call to train policy and (possibly) neural network baseline.
+        Update function to call to train policy and value function.
         Returns approx_entropy, approx_kl
         """
         # Optimizing Neural Network Baseline
-        if self.nn_baseline:
-            # If a neural network baseline is used, set up the targets and the inputs for the
-            # baseline.
-            target_n = normalise(qs)
-            self.sess.run(self.baseline_update, feed_dict={self.obs_ph: obs,
-                                                           self.baseline_targets_ph: target_n})
+        for _ in range(self.n_value_fn_updates):
+            self.sess.run(self.value_fn_update, feed_dict={self.obs_ph: obs,
+                                                           self.value_targets: rwds})
         # compute entropy before update
         approx_entropy = self.sess.run(self.approx_entropy,
                                        feed_dict={self.obs_ph: obs,
                                                   self.acs_ph: acs})
         # Performing the Policy Update
-        self.sess.run(self.policy_update, feed_dict={self.obs_ph: obs,
-                                                     self.acs_ph: acs,
-                                                     self.adv_ph: advs,
-                                                     self.prev_logprob_ph: logprobs})
+        for _ in range(self.n_policy_updates):
+            self.sess.run(self.policy_update, feed_dict={self.obs_ph: obs,
+                                                         self.acs_ph: acs,
+                                                         self.adv_ph: advs,
+                                                         self.prev_logprob_ph: logprobs})
         approx_kl = self.sess.run(self.approx_kl,
                                   feed_dict={self.obs_ph: obs,
                                              self.acs_ph: acs,

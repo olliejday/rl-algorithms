@@ -81,13 +81,15 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
         obs = buffer.get_obs()
         acs = buffer.get_acs()
         logprobs = buffer.get_logprobs()
-        rwds = buffer.rwds
+        # rewards kept within episodes, undiscounted for logging
+        raw_rwds = buffer.rwds
+        # advantages and rewards to go with GAE for updates
+        rwds, advs = buffer.get_gae(ppo.gamma, ppo.gae_lambda)
 
-        q_n, adv_n = ppo.estimate_return(obs, rwds)
-        approx_entropy, approx_kl = ppo.update_parameters(obs, acs, q_n, adv_n, logprobs)
+        approx_entropy, approx_kl = ppo.update_parameters(obs, acs, rwds, advs, logprobs)
 
-        returns = [sum(r) for r in rwds]
-        ep_lens = [len(r) for r in rwds]
+        returns = [sum(r) for r in raw_rwds]
+        ep_lens = [len(r) for r in raw_rwds]
         timesteps += np.sum(ep_lens)
 
         training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),
@@ -108,33 +110,30 @@ def _train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kw
 
     env.close()
 
-# TODO: train all these -- on longjob?? on colab??, plot, plot comparisons
-#   Longjob of this setup, lander, running on DICE
-#   Running this setup half-cheetah on colab
 
 def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="ppo-cartpole"):
-    nn_baseline = FC_NN([64, 64], 1)
-    train("CartPole-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
-          min_timesteps_per_batch=2500, learning_rate=0.02, n_iter=25, render_every=1000)
-
+    value_fn = FC_NN([64, 64], 1)
+    train("CartPole-v1", exp_name, n_experiments, seed=seed, debug=debug, value_fn_class=value_fn,
+          min_timesteps_per_batch=2500, n_iter=25, render_every=1000, gae_lambda=1.0,
+          clip_ratio=0.25)
 
 def train_inverted_pendulum(n_experiments=3, seed=1, debug=True, exp_name="ppo-inverted-pendulum"):
-    nn_baseline = FC_NN([64, 64], 1)
+    value_fn = FC_NN([64, 64], 1)
     train("RoboschoolInvertedPendulum-v1", exp_name, n_experiments, seed=seed, debug=debug,
-          nn_baseline=nn_baseline, min_timesteps_per_batch=5000,
-          learning_rate=0.005, n_iter=50, gamma=0.95, render_every=1000, save_every=45)
+          value_fn_class=value_fn, min_timesteps_per_batch=5000, n_iter=50, gamma=0.95,
+          render_every=1000, save_every=45)
 
 
 def train_lander(n_experiments=3, seed=123, debug=False, exp_name="ppo-lander"):
-    nn_baseline = FC_NN([64, 64], 1)
-    train("LunarLanderContinuous-v2", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
-          min_timesteps_per_batch=40000, learning_rate=0.005, render_every=1000, save_every=90)
+    value_fn = FC_NN([64, 64], 1)
+    train("LunarLanderContinuous-v2", exp_name, n_experiments, seed=seed, debug=debug, value_fn_class=value_fn,
+          min_timesteps_per_batch=40000, render_every=1000, save_every=90)
 
 
 def train_half_cheetah(n_experiments=3, seed=1, debug=False, exp_name="ppo-half-cheetah"):
-    nn_baseline = FC_NN([64, 64], 1)
-    train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed=seed, debug=debug, nn_baseline=nn_baseline,
-          min_timesteps_per_batch=50000, learning_rate=0.01, render_every=1000, save_every=90)
+    value_fn = FC_NN([64, 64], 1)
+    train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed=seed, debug=debug, value_fn_class=value_fn,
+          min_timesteps_per_batch=50000, render_every=1000, save_every=90)
 
 
 if __name__ == "__main__":

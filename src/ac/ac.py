@@ -4,7 +4,7 @@ import time
 import os
 
 from src.ac.utils import ACBuffer, normalise
-from src.common.models import DiscretePolicy, ContinuousPolicy, FC_NN
+from src.ac.models import DiscretePolicy, ContinuousPolicy, FC_NN
 
 
 class ActorCrtic:

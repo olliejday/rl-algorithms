@@ -19,7 +19,7 @@ Some implementation notes on the included algorithms:
     * Reparamaterised or REINFORCE style gradients
     * Two Q functions for greater stability (similar to Double DQN)
 * Proximal Policy Gradients (PPO)
-    * Vanilla PPO version
+    * Uses Generalised Advantage Estimation (GAE)
 
 
 ## Custom Models
