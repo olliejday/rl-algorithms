@@ -147,7 +147,7 @@ def train_lander():
         'epoch_length': 1000,
         'two_qf': False
     }
-    train('LunarLanderContinuous-v2', "sac-lander", algorithm_params, n_epochs=750, save_every=350,
+    train('LunarLanderContinuous-v2', "sac-lander", algorithm_params, n_epochs=1500, save_every=740,
           seed=123, debug=True)
 
 
@@ -162,7 +162,7 @@ def train_half_cheetah():
         'epoch_length': 1000,
         'two_qf': True
     }
-    train("RoboschoolHalfCheetah-v1", "sac-half-cheetah", algorithm_params, seed=1, debug=True)
+    train("RoboschoolHalfCheetah-v1", "sac-half-cheetah", algorithm_params, n_epochs=4000, save_every=950, seed=1, debug=True)
 
 
 def train_inverted_pendulum():
