@@ -53,7 +53,7 @@ class GradientBatchTrainer:
         # divided by the counter. Note: apply_gradients takes in a list of
         # (grad, var) pairs
         self.train_step = optimizer.apply_gradients(
-            [(accumulator, var) \
+            [(accumulator / accumulation_counter, var) \
              for (accumulator, (grad, var)) in zip(accumulators, grad_pairs)]
         )
         # Accumulators must be zeroed once the accumulated gradient is applied.
