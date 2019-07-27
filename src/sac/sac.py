@@ -1,9 +1,10 @@
 import os
 
+import gym
 import tensorflow as tf
 import time
 
-from src.sac.models import GaussianPolicy, ValueFunction, QFunction
+from src.sac.models import GaussianPolicy, ValueFunction, QFunctionContinuous
 
 
 class SAC:
@@ -18,6 +19,7 @@ class SAC:
     """
 
     def __init__(self,
+                 env,
                  experiments_dir="",
                  alpha=1.0,
                  batch_size=256,
@@ -30,6 +32,15 @@ class SAC:
         """
         Args:
         """
+
+        # TODO: note changed args to __init__ and build
+        # Is this env continuous, or self.discrete?
+        self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
+        self.ob_dim = env.observation_space.shape
+        if self.discrete:
+            self.ac_dim = env.action_space.n
+        else:
+            self.ac_dim = env.action_space.shape[0]
 
         self._alpha = alpha
         self._batch_size = batch_size
@@ -51,23 +62,26 @@ class SAC:
                 print("Made model directory: {}".format(save_dir))
                 os.makedirs(save_dir)
 
-    def build(self, env, q_function_params, value_function_params, policy_params):
-
-        self.q_function = QFunction(name='q_function', **q_function_params)
-        if self._two_qf:
-            self.q_function2 = QFunction(name='q_function2', **q_function_params)
+    def build(self, q_function_params, value_function_params, policy_params):
+        if self.discrete:
+            # TODO: discrete model setup
+            pass
         else:
-            self.q_function2 = None
-        self.value_function = ValueFunction(
-            name='value_function', **value_function_params)
-        self.target_value_function = ValueFunction(
-            name='target_value_function', **value_function_params)
-        self.policy = GaussianPolicy(
-            action_dim=env.action_space.shape[0],
-            reparameterize=self._reparameterize,
-            **policy_params)
+            self.q_function = QFunctionContinuous(name='q_function', **q_function_params)
+            if self._two_qf:
+                self.q_function2 = QFunctionContinuous(name='q_function2', **q_function_params)
+            else:
+                self.q_function2 = None
+            self.value_function = ValueFunction(
+                name='value_function', **value_function_params)
+            self.target_value_function = ValueFunction(
+                name='target_value_function', **value_function_params)
+            self.policy = GaussianPolicy(
+                action_dim=env.action_space.shape[0],
+                reparameterize=self._reparameterize,
+                **policy_params)
 
-        self._create_placeholders(env)
+        self._create_placeholders()
 
         policy_loss = self._policy_loss_for()
         value_function_loss = self._value_function_loss_for()
@@ -102,25 +116,29 @@ class SAC:
         self.sess = tf.keras.backend.get_session()
         self.sess.run(tf.global_variables_initializer())
 
-    def _create_placeholders(self, env):
-        observation_dim = env.observation_space.shape[0]
-        action_dim = env.action_space.shape[0]
-
+    def _create_placeholders(self):
         self._observations_ph = tf.placeholder(
             tf.float32,
-            shape=(None, observation_dim),
+            shape=(None, self.ob_dim),
             name='observation',
         )
         self._next_observations_ph = tf.placeholder(
             tf.float32,
-            shape=(None, observation_dim),
+            shape=(None, self.ob_dim),
             name='next_observation',
         )
-        self._actions_ph = tf.placeholder(
-            tf.float32,
-            shape=(None, action_dim),
-            name='actions',
-        )
+        if self.discrete:
+            self._actions_ph = tf.placeholder(
+                tf.float32,
+                shape=(None, ),
+                name='actions',
+                )
+        else:
+            self._actions_ph = tf.placeholder(
+                tf.float32,
+                shape=(None, self.ac_dim),
+                name='actions',
+                )
         self._rewards_ph = tf.placeholder(
             tf.float32,
             shape=(None, ),
@@ -133,24 +151,28 @@ class SAC:
         )
 
     def _policy_loss_for(self):
-        if self._reparameterize:
-            # normal sample stage handled within policy
-            action_samples, sample_log_probs = self.policy(self._observations_ph)
-            q_value_estimates = self.q_function([self._observations_ph, action_samples])
-            return tf.reduce_mean(self._alpha * sample_log_probs - q_value_estimates)
+        if self.discrete:
+            # TODO: discrete policy loss (as sum over actions for Dkl)
+            pass
         else:
-            action_samples, sample_log_probs = self.policy(self._observations_ph)
-            q_value_estimates = self.q_function([self._observations_ph, action_samples])
-            if self.q_function2 is not None:
-                # correct for positive bias with two q functions
-                q_value_estimates = tf.minimum(q_value_estimates,
-                                               self.q_function2([self._observations_ph, action_samples]))
-            # baseline as value function
-            baseline = self.value_function(self._observations_ph)
-            # don't want value through targets
-            target_values = tf.stop_gradient(self._alpha * sample_log_probs - q_value_estimates + baseline)
-            # we do want gradients through this policy sample
-            return tf.reduce_mean(sample_log_probs * target_values)
+            if self._reparameterize:
+                # normal sample stage handled within policy
+                action_samples, sample_log_probs = self.policy(self._observations_ph)
+                q_value_estimates = self.q_function([self._observations_ph, action_samples])
+                return tf.reduce_mean(self._alpha * sample_log_probs - q_value_estimates)
+            else:
+                action_samples, sample_log_probs = self.policy(self._observations_ph)
+                q_value_estimates = self.q_function([self._observations_ph, action_samples])
+                if self.q_function2 is not None:
+                    # correct for positive bias with two q functions
+                    q_value_estimates = tf.minimum(q_value_estimates,
+                                                   self.q_function2([self._observations_ph, action_samples]))
+                # baseline as value function
+                baseline = self.value_function(self._observations_ph)
+                # don't want value through targets
+                target_values = tf.stop_gradient(self._alpha * sample_log_probs - q_value_estimates + baseline)
+                # we do want gradients through this policy sample
+                return tf.reduce_mean(sample_log_probs * target_values)
 
     def _value_function_loss_for(self):
         action_samples, sample_log_probs = self.policy(self._observations_ph)
@@ -165,6 +187,7 @@ class SAC:
 
 
     def _q_function_loss_for(self, q_function):
+        # TODO: does Q loss need a discrete version?
         q_value_estimates = q_function([self._observations_ph, self._actions_ph])
         target_value_estimates = self.target_value_function(self._next_observations_ph)
         # incorporate discount and the terminal mask

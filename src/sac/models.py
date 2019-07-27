@@ -3,18 +3,7 @@ import tensorflow as tf
 from tensorflow_probability import distributions
 
 
-class QFunction(tf.keras.Model):
-    def __init__(self, hidden_layer_sizes, **kwargs):
-        super(QFunction, self).__init__(**kwargs)
-        self.model = tf.keras.Sequential()
-        for hidden_units in hidden_layer_sizes:
-            self.model.add(tf.keras.layers.Dense(hidden_units, activation='relu'))
-        self.model.add(tf.keras.layers.Dense(1, activation=None))
-        self.model.add(tf.keras.layers.Lambda(lambda x: tf.squeeze(x, axis=1)))
-
-    def call(self, inputs):
-        x = tf.keras.layers.Concatenate(axis=1)(list(inputs))
-        return self.model(x)
+### GENERAL
 
 
 class ValueFunction(tf.keras.Model):
@@ -28,6 +17,23 @@ class ValueFunction(tf.keras.Model):
 
     def call(self, inputs):
         return self.model(inputs)
+
+
+### CONTINUOUS
+
+
+class QFunctionContinuous(tf.keras.Model):
+    def __init__(self, hidden_layer_sizes, **kwargs):
+        super(QFunctionContinuous, self).__init__(**kwargs)
+        self.model = tf.keras.Sequential()
+        for hidden_units in hidden_layer_sizes:
+            self.model.add(tf.keras.layers.Dense(hidden_units, activation='relu'))
+        self.model.add(tf.keras.layers.Dense(1, activation=None))
+        self.model.add(tf.keras.layers.Lambda(lambda x: tf.squeeze(x, axis=1)))
+
+    def call(self, inputs):
+        x = tf.keras.layers.Concatenate(axis=1)(list(inputs))
+        return self.model(x)
 
 
 class GaussianPolicy(tf.keras.Model):
@@ -80,3 +86,9 @@ class GaussianPolicy(tf.keras.Model):
 
         action, = self._f([observation[None]])
         return action.flatten()
+
+
+### DISCRETE
+
+
+# TODO: discrete models
