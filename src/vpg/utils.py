@@ -63,18 +63,17 @@ class GradientBatchTrainer:
             ) for (accumulator, tv) in zip(accumulators, trainable_vars)
         ]
 
-    def get_batches(self, data, batch_size):
+    def get_batches(self, data, batch_size, min_batch=0.3):
         """
         Returns data split into an array of batches of size batch_size.
-        If the batch size does not exactly fit, we only include the extra if it's at least
-        half a batch size (otherwise we get noisy gradients)
+        With additional data in a smaller batch if more than batch_size * min_batch amount in there
         """
         n = int(len(data) / batch_size)
-        if len(data) % batch_size != 0 and (len(data) / batch_size) - int(len(data) / batch_size) > 0.5:
-            return [data[i * batch_size:(i + 1) * batch_size] for i in range(n)] + [data[n * batch_size:]]
-        else:
-            # otherwise must exactly divide or have less than half a batch
-            return [data[i:i + batch_size] for i in range(n)]
+        batches = [data[i * batch_size:(i + 1) * batch_size] for i in range(n)]
+        # add any extras if not exact batch size
+        if len(data) / batch_size - int(len(data) / batch_size) > min_batch:
+            batches += [data[n:]]
+        return batches
 
     def get_feed_dicts(self, feed_dict, batch_size):
         """
