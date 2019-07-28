@@ -4,7 +4,7 @@ import gym
 import tensorflow as tf
 import time
 
-from src.sac.models import GaussianPolicy, ValueFunction, QFunctionContinuous
+from src.sac.models import GaussianPolicy, ValueFunction, QFunctionContinuous, CategoricalPolicy, QFunctionDiscrete
 
 
 class SAC:
@@ -33,7 +33,7 @@ class SAC:
         Args:
         """
 
-        # TODO: note changed args to __init__ and build
+        # TODO: note changed args, moving `env` from build() to __init__()
         # Is this env continuous, or self.discrete?
         self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
         self.ob_dim = env.observation_space.shape
@@ -64,22 +64,30 @@ class SAC:
 
     def build(self, q_function_params, value_function_params, policy_params):
         if self.discrete:
-            # TODO: discrete model setup
-            pass
+            self.q_function = QFunctionDiscrete(name='q_function', **q_function_params)
+            if self._two_qf:
+                self.q_function2 = QFunctionDiscrete(name='q_function2', **q_function_params)
+            else:
+                self.q_function2 = None
+            self.policy = CategoricalPolicy(
+                action_dim=self.ac_dim,
+                reparameterize=self._reparameterize,
+                **policy_params)
         else:
             self.q_function = QFunctionContinuous(name='q_function', **q_function_params)
             if self._two_qf:
                 self.q_function2 = QFunctionContinuous(name='q_function2', **q_function_params)
             else:
                 self.q_function2 = None
-            self.value_function = ValueFunction(
-                name='value_function', **value_function_params)
-            self.target_value_function = ValueFunction(
-                name='target_value_function', **value_function_params)
             self.policy = GaussianPolicy(
-                action_dim=env.action_space.shape[0],
+                action_dim=self.ac_dim,
                 reparameterize=self._reparameterize,
                 **policy_params)
+
+        self.value_function = ValueFunction(
+            name='value_function', **value_function_params)
+        self.target_value_function = ValueFunction(
+            name='target_value_function', **value_function_params)
 
         self._create_placeholders()
 
