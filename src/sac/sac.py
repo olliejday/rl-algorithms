@@ -33,7 +33,6 @@ class SAC:
         Args:
         """
 
-        # TODO: note changed args, moving `env` from build() to __init__()
         # Is this env continuous, or self.discrete?
         self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
         self.ob_dim = env.observation_space.shape

@@ -67,6 +67,7 @@ def run_ant(exp_name="sac-ant", seed=1, debug=False):
 
 if __name__ == "__main__":
     options = {}
+    options['cartpole'] = run_cartpole
     options['lander'] = run_lander
     options['inverted-pendulum'] = run_inverted_pendulum
     options['half-cheetah'] = run_half_cheetah

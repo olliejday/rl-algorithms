@@ -108,11 +108,11 @@ def _train(env_name, exp_name, seed, algorithm_params, debug=True, save_every=45
         action_shape=env.action_space.shape,
         **replay_pool_params)
 
-    sac = SAC(experiments_dir=experiments_path,
+    sac = SAC(env,
+              experiments_dir=experiments_path,
               **algorithm_params)
 
     sac.build(
-        env=env,
         q_function_params=q_function_params,
         value_function_params=value_function_params,
         policy_params=policy_params)
@@ -134,6 +134,19 @@ def _train(env_name, exp_name, seed, algorithm_params, debug=True, save_every=45
                             )
         if epoch % save_every == 0:
             sac.save_model(timesteps)
+
+
+def train_cartpole():
+    algorithm_params = {
+        'alpha': 0.2,
+        'batch_size': 256,
+        'discount': 0.99,
+        'learning_rate': 3e-4,
+        'tau': 5e-3,
+        'epoch_length': 1000,
+        'two_qf': False
+    }
+    train('CartPole-v1', "sac-cartpole", algorithm_params, n_epochs=500, save_every=490, seed=1, debug=True)
 
 
 def train_lander():
@@ -196,6 +209,7 @@ def train_ant():
 
 if __name__ == "__main__":
     options = {}
+    options['cartpole'] = train_cartpole
     options['lander'] = train_lander
     options['half-cheetah'] = train_half_cheetah
     options['inverted-pendulum'] = train_inverted_pendulum
