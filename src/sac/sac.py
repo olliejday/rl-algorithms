@@ -159,9 +159,31 @@ class SAC:
         )
 
     def _policy_loss_for(self):
+        """
+        DISCRETE
+
+        We compute the log prob and Q values for each (finite set of) actions.
+        Then can compute the KL divergence by summing over actions.
+        We use a log form of the KL divergence equation (10) in the paper.
+        We apply the log sum exp trick for numerical stability.
+
+        CONTINUOUS
+
+        We approximate the KL divergence two ways.
+        Reparameterise if the policy formulation allows, else the more general but usually
+        higher variance REINFORCE gradient.
+
+        """
         if self.discrete:
-            # TODO: discrete policy loss (as sum over actions for Dkl)
-            pass
+            log_probs = self.policy.logprobs(self._observations_ph)
+            probs = tf.exp(log_probs)
+            q_value_estimates = self.q_function.q_values(self._observations_ph)
+            # constant for log sum exp
+            c = tf.reduce_max(q_value_estimates, axis=1)
+            # parition function, computed with log sum exp trick
+            z = tf.log(tf.reduce_sum(tf.exp(q_value_estimates - c), axis=1)) + c
+            dkl = probs * (q_value_estimates - tf.log(z) - log_probs)
+            return -tf.reduce_sum(dkl, axis=1)
         else:
             if self._reparameterize:
                 # normal sample stage handled within policy
@@ -266,7 +288,7 @@ def run_model(env, experiments_dir, model_path=None, n_episodes=3, **kwargs):
     :param **kwargs: for VPG setup
     """
 
-    sac = SAC(experiments_dir=experiments_dir, **kwargs)
+    sac = SAC(env, experiments_dir=experiments_dir, **kwargs)
 
     value_function_params = {
         'hidden_layer_sizes': (128, 128),
@@ -281,7 +303,6 @@ def run_model(env, experiments_dir, model_path=None, n_episodes=3, **kwargs):
     }
 
     sac.build(
-        env=env,
         q_function_params=q_function_params,
         value_function_params=value_function_params,
         policy_params=policy_params)
