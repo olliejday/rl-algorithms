@@ -63,14 +63,13 @@ class SAC:
 
     def build(self, q_function_params, value_function_params, policy_params):
         if self.discrete:
-            self.q_function = QFunctionDiscrete(name='q_function', **q_function_params)
+            self.q_function = QFunctionDiscrete(self.ac_dim, name='q_function', **q_function_params)
             if self._two_qf:
-                self.q_function2 = QFunctionDiscrete(name='q_function2', **q_function_params)
+                self.q_function2 = QFunctionDiscrete(self.ac_dim, name='q_function2', **q_function_params)
             else:
                 self.q_function2 = None
             self.policy = CategoricalPolicy(
                 action_dim=self.ac_dim,
-                reparameterize=self._reparameterize,
                 **policy_params)
         else:
             self.q_function = QFunctionContinuous(name='q_function', **q_function_params)
@@ -126,17 +125,17 @@ class SAC:
     def _create_placeholders(self):
         self._observations_ph = tf.placeholder(
             tf.float32,
-            shape=(None, self.ob_dim),
+            shape=[None] + [dim for dim in self.ob_dim],
             name='observation',
         )
         self._next_observations_ph = tf.placeholder(
             tf.float32,
-            shape=(None, self.ob_dim),
+            shape=[None] + [dim for dim in self.ob_dim],
             name='next_observation',
         )
         if self.discrete:
             self._actions_ph = tf.placeholder(
-                tf.float32,
+                tf.int32,
                 shape=(None, ),
                 name='actions',
                 )
@@ -165,6 +164,7 @@ class SAC:
         Then can compute the KL divergence by summing over actions.
         We use a log form of the KL divergence equation (10) in the paper.
         We apply the log sum exp trick for numerical stability.
+        We transpose so that tf broadcasting works, so it goes from (batch, actions) -> (actions, batch)
 
         CONTINUOUS
 
@@ -174,15 +174,15 @@ class SAC:
 
         """
         if self.discrete:
-            log_probs = self.policy.logprobs(self._observations_ph)
+            log_probs = tf.transpose(self.policy.logprobs(self._observations_ph))
             probs = tf.exp(log_probs)
-            q_value_estimates = self.q_function.q_values(self._observations_ph)
+            q_value_estimates = tf.transpose(self.q_function.q_values(self._observations_ph))
             # constant for log sum exp
-            c = tf.reduce_max(q_value_estimates, axis=1)
+            c = tf.reduce_max(q_value_estimates, axis=0)
             # parition function, computed with log sum exp trick
-            z = tf.log(tf.reduce_sum(tf.exp(q_value_estimates - c), axis=1)) + c
+            z = tf.log(tf.reduce_sum(tf.exp(q_value_estimates - c), axis=0)) + c
             dkl = probs * (q_value_estimates - tf.log(z) - log_probs)
-            return -tf.reduce_sum(dkl, axis=1)
+            return -tf.reduce_sum(dkl, axis=0)
         else:
             if self._reparameterize:
                 # normal sample stage handled within policy

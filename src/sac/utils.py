@@ -1,3 +1,4 @@
+import gym
 import numpy as np
 
 
@@ -112,14 +113,7 @@ class Sampler(object):
         self.policy = policy
         self.pool = pool
 
-        class UniformPolicy:
-            def __init__(self, action_dim):
-                self._action_dim = action_dim
-
-            def eval(self, _):
-                return np.random.uniform(-1, 1, self._action_dim)
-
-        uniform_exploration_policy = UniformPolicy(env.action_space.shape[0])
+        uniform_exploration_policy = UniformPolicy(env.action_space)
         for _ in range(self._prefill_steps):
             self.sample(uniform_exploration_policy)
 
@@ -196,3 +190,22 @@ class SimpleSampler(Sampler):
 
         return self.ep_returns[:-self.mean_n], self.ep_lengths[:-self.mean_n],\
                self._total_samples, self._n_episodes
+
+
+class UniformPolicy:
+    """
+    Infers from action space whether discrete or continuous.
+    Returns a uniform sample action
+    """
+    def __init__(self, action_dim):
+        self.discrete = isinstance(action_dim, gym.spaces.Discrete)
+        if self.discrete:
+            self.ac_dim = action_dim.n
+        else:
+            self.ac_dim = action_dim.shape[0]
+
+    def eval(self, _):
+        if self.discrete:
+            return np.random.randint(0, self.ac_dim, size=1)[0]
+        else:
+            return np.random.uniform(-1, 1, self.ac_dim)

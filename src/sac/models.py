@@ -136,12 +136,11 @@ class CategoricalPolicy(tf.keras.Model):
         """
         x = self.model(inputs)
         logprob = tf.keras.layers.Lambda(lambda x: tf.nn.log_softmax(x), name="logprob")(x)
-        sampled_ac = tf.keras.layers.Lambda(
-            lambda x: tf.squeeze(tf.random.categorical(x, 1, name="sampled_ac", dtype=tf.int32),
-                                 axis=1), name="sample_ac")(x)
-        logprob_sampled = tf.keras.layers.Lambda(lambda x: gather_nd(x, sampled_ac, name="logprob_sampled"),
+        self.sampled_ac = tf.keras.layers.Lambda(
+            lambda x: tf.squeeze(tf.random.categorical(x, 1, name="sampled_ac", dtype=tf.int32)), name="sample_ac")(x)
+        logprob_sampled = tf.keras.layers.Lambda(lambda x: gather_nd(x, self.sampled_ac, name="logprob_sampled"),
                                                  name="logprob_sampled")(logprob)
-        return sampled_ac, logprob_sampled
+        return self.sampled_ac, logprob_sampled
 
     def logprobs(self, inputs):
         """
@@ -159,7 +158,7 @@ class CategoricalPolicy(tf.keras.Model):
         assert self.built and observation.ndim == 1
 
         if self._f is None:
-            self._f = tf.keras.backend.function(self.inputs, [self.outputs[0]])
+            self._f = tf.keras.backend.function(self.inputs, self.sampled_ac)
 
-        action, = self._f([observation[None]])
-        return action.flatten()
+        action = self._f([observation[None]])
+        return action
