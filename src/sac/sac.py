@@ -180,9 +180,9 @@ class SAC:
             # constant for log sum exp
             c = tf.reduce_max(q_value_estimates, axis=0)
             # parition function, computed with log sum exp trick
-            z = tf.log(tf.reduce_sum(tf.exp(q_value_estimates - c), axis=0)) + c
-            dkl = probs * (q_value_estimates - tf.log(z) - log_probs)
-            return -tf.reduce_sum(dkl, axis=0)
+            log_z = tf.log(tf.reduce_sum(tf.exp(q_value_estimates - c), axis=0)) + c
+            dkl = probs * (q_value_estimates - log_z - log_probs)
+            return -tf.reduce_mean(dkl, axis=0)
         else:
             if self._reparameterize:
                 # normal sample stage handled within policy

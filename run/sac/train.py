@@ -141,7 +141,7 @@ def train_cartpole():
         'alpha': 0.2,
         'batch_size': 256,
         'discount': 0.99,
-        'learning_rate': 3e-4,
+        'learning_rate': 3e-3,
         'tau': 5e-3,
         'epoch_length': 1000,
         'two_qf': False
