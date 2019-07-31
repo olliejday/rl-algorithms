@@ -18,18 +18,20 @@ class ProximalPolicyOptimisation:
                  sess_config=None,
                  hidden_layer_sizes=[64, 64],
                  experiments_path="",
-                 policy_learning_rate=5e-3,
-                 value_fn_learning_rate=1e-2,
-                 n_policy_updates=15,
-                 n_value_updates=15,
+                 policy_learning_rate=3e-4,
+                 value_fn_learning_rate=1e-3,
+                 n_policy_updates=50,
+                 n_value_updates=50,
                  clip_ratio=0.2,
-                 value_fn_class=None,
+                 value_fn=None,
                  render_every=20,
                  max_path_length=1000,
                  min_timesteps_per_batch=10000,
                  gamma=0.99,
-                 gae_lambda=0.975,
+                 gae_lambda=0.97,
                  normalise_advantages=True,
+                 entropy_coefficient=1e-4,
+                 target_kl=0.01
                  ):
 
         """
@@ -61,9 +63,8 @@ class ProximalPolicyOptimisation:
             Number of value function updates to make every update iteration
         clip_ratio: float
             Hyperparameter for clipping policy objective
-        value_fn_class: tf.keras.Model
-            Model class to compute value function, see models.py.
-            Should be __init__ and ready to call with inputs
+        value_fn: tf.keras.Model
+            Model to compute value function, see models.py.
         render_every: int
             Render an episode regularly through training to monitor progress
         max_path_length: int
@@ -76,8 +77,12 @@ class ProximalPolicyOptimisation:
             Lambda value for GAE (Between 0 and 1, close to 1)
         normalise_advantages: bool
             Whether to normalise advantages.
+        entropy_coefficient: float
+            Trades off the entropy term in the PPO loss
+        target_kl: float
+            KL divergence range acceptable between old and updated policy. Used for early stopping policy updates
         """
-        assert value_fn_class is not None, "Must provide value function."
+        assert value_fn is not None, "Must provide value function."
 
         self.env = env
         # Is this env continuous, or self.discrete?
@@ -102,13 +107,15 @@ class ProximalPolicyOptimisation:
         self.n_policy_updates = n_policy_updates
         self.n_value_fn_updates = n_value_updates
         self.clip_ratio = clip_ratio
-        self.value_fn_class = value_fn_class
+        self.value_fn = value_fn
         self.render_every = render_every
         self.max_path_length = max_path_length
         self.min_timesteps_per_batch = min_timesteps_per_batch
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.normalise_advantages = normalise_advantages
+        self.entropy_coefficient = entropy_coefficient
+        self.target_kl = target_kl
 
         # make directory to save models
         if self.experiments_path != None:
@@ -122,22 +129,28 @@ class ProximalPolicyOptimisation:
         Define string behaviour as key parameters for logging
         """
         to_string = """
-        policy_learning_rate: {}
-        value_function_learning_rate: {}
-        hidden_layer_size: {}
-        nn_basline: {}
-        max_path_length: {}
-        min_timesteps_per_batch: {}
-        gamma: {}
-        normalise_advntages: {}""".format(
+            policy_learning_rate: {}
+            value_function_learning_rate: {}
+            hidden_layer_size: {}
+            value_fn_class: {}
+            gamma: {}
+            n_policy_updates: {}
+            n_value_fn_updates: {}
+            clip_ratio: {}
+            gae_lambda: {}
+            entropy_coefficient: {}
+            target_kl: {}""".format(
             self.policy_learning_rate,
             self.value_fn_learning_rate,
             self.hidden_layer_sizes,
-            self.value_fn_class,
-            self.max_path_length,
-            self.min_timesteps_per_batch,
+            self.value_fn,
             self.gamma,
-            self.normalise_advantages)
+            self.n_policy_updates,
+            self.n_value_fn_updates,
+            self.clip_ratio,
+            self.gae_lambda,
+            self.entropy_coefficient,
+            self.target_kl)
         return to_string
 
     def setup_placeholders(self):
@@ -172,17 +185,21 @@ class ProximalPolicyOptimisation:
         """
         # approximate some useful metrics to monitor during training
         self.approx_kl = tf.reduce_mean(self.prev_logprob_ph - self.logprob_ac)
-        self.approx_entropy = tf.reduce_mean(-self.logprob_ac)
 
         # the PPO gradient loss, we use the equivalent simplified version
         prob_ratio = tf.exp(self.logprob_ac - self.prev_logprob_ph)
         loss_values = prob_ratio * self.adv_ph
-        clip_values = tf.where(self.adv_ph > 0, (1 + self.clip_ratio) * self.adv_ph, (1 - self.clip_ratio) * self.adv_ph)
-        loss = - tf.reduce_mean(tf.minimum(loss_values, clip_values), name="loss")
+        clip_values = tf.where(self.adv_ph > 0, (1 + self.clip_ratio) * self.adv_ph,
+                               (1 - self.clip_ratio) * self.adv_ph)
+        surrogate_loss = - tf.reduce_mean(tf.minimum(loss_values, clip_values), name="loss")
+        # include an entropy term
+        probs = tf.exp(self.logprob_ac)
+        self.policy_entropy = tf.reduce_sum(-(self.logprob_ac * probs))
+        loss = surrogate_loss - self.entropy_coefficient * self.policy_entropy
         optimizer = tf.train.AdamOptimizer(self.policy_learning_rate)
         self.policy_update = optimizer.minimize(loss)
 
-        self.value_fn_prediction = self.value_fn_class(self.obs_ph)
+        self.value_fn_prediction = self.value_fn(self.obs_ph)
         value_loss = 0.5 * tf.reduce_sum((self.value_fn_prediction - self.value_targets) ** 2,
                                             name="value_fn_loss")
         val_optimizer = tf.train.AdamOptimizer(self.value_fn_learning_rate)
@@ -264,20 +281,20 @@ class ProximalPolicyOptimisation:
                 break
             if steps >= self.max_path_length:
                 # for GAE pass the estimated value if we finish early.
-                buffer.early_stop(self.value_fn_class.predict(ob_))
+                buffer.early_stop(self.value_fn.predict(ob_))
                 break
 
     def update_parameters(self, obs, acs, rwds, advs, logprobs):
         """
         Update function to call to train policy and value function.
-        Returns approx_entropy, approx_kl
+        Returns policy_entropy, approx_kl
         """
         # Optimizing Neural Network Baseline
         for _ in range(self.n_value_fn_updates):
             self.sess.run(self.value_fn_update, feed_dict={self.obs_ph: obs,
                                                            self.value_targets: rwds})
         # compute entropy before update
-        approx_entropy = self.sess.run(self.approx_entropy,
+        policy_entropy = self.sess.run(self.policy_entropy,
                                        feed_dict={self.obs_ph: obs,
                                                   self.acs_ph: acs})
         # Performing the Policy Update
@@ -286,11 +303,14 @@ class ProximalPolicyOptimisation:
                                                          self.acs_ph: acs,
                                                          self.adv_ph: advs,
                                                          self.prev_logprob_ph: logprobs})
-        approx_kl = self.sess.run(self.approx_kl,
-                                  feed_dict={self.obs_ph: obs,
-                                             self.acs_ph: acs,
-                                             self.prev_logprob_ph: logprobs})
-        return approx_entropy, approx_kl
+            # get the kl of the update
+            approx_kl = self.sess.run(self.approx_kl,
+                                      feed_dict={self.obs_ph: obs,
+                                                 self.acs_ph: acs,
+                                                 self.prev_logprob_ph: logprobs})
+            if approx_kl > 1.5 * self.target_kl:
+                break
+        return policy_entropy, approx_kl
 
     def sync_weights(self):
         """

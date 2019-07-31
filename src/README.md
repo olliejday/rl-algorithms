@@ -20,6 +20,9 @@ Some implementation notes on the included algorithms:
     * Two Q functions for greater stability (similar to Double DQN)
 * Proximal Policy Gradients (PPO)
     * Uses Generalised Advantage Estimation (GAE)
+    * Uses MPI for fast rollouts
+    * Has an entropy bonus on the policy loss
+    * Has KL divergence early stopping on the policy updates
 
 
 ## Custom Models

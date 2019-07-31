@@ -38,10 +38,9 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
     if rank == controller:
         device_config = tf.ConfigProto()
         root_dir = os.path.dirname(os.path.realpath(__file__))
-        experiments_dir = os.path.join(root_dir, "experiments", exp_name)
-        assert not os.path.exists(experiments_dir), \
-            "Experiment dir {} already exists! Delete it first or use a different dir".format(experiments_dir)
-        experiments_path = os.path.join(root_dir, experiments_dir, str(seed))
+        experiments_path = os.path.join(root_dir, "experiments", exp_name, str(seed))
+        assert not os.path.exists(experiments_path), \
+            "Experiment dir {} already exists! Delete it first or use a different dir".format(experiments_path)
     else:
         device_config = tf.ConfigProto(device_count={'GPU': 0})
         experiments_path = None
@@ -109,32 +108,39 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
 
     env.close()
 
-def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="ppo-cartpole"):
+
+def train_cartpole(n_experiments=3, seed=3, debug=True, exp_name="ppo-cartpole"):
     value_fn = FC_NN([64, 64], 1)
     # TODO: setup so that can run MPI n_experiments times over seeds
     for i in range(1, n_experiments + 1):
-        train("CartPole-v1", exp_name, seed=seed * i, debug=debug, value_fn_class=value_fn,
-          min_timesteps_per_batch=2500, n_iter=25, render_every=1000, gae_lambda=1.0,
-          clip_ratio=0.25)
+        seed += i
+        train("CartPole-v1", exp_name, seed=seed, debug=debug, value_fn=value_fn,
+              min_timesteps_per_batch=2500, n_iter=25, render_every=1000, gae_lambda=1.0)
 
 
 def train_inverted_pendulum(n_experiments=3, seed=1, debug=True, exp_name="ppo-inverted-pendulum"):
     value_fn = FC_NN([64, 64], 1)
-    train("RoboschoolInvertedPendulum-v1", exp_name, n_experiments, seed=seed, debug=debug,
-          value_fn_class=value_fn, min_timesteps_per_batch=5000, n_iter=50, gamma=0.95,
-          render_every=1000, save_every=45)
+    for i in range(1, n_experiments + 1):
+        seed += i
+        train("RoboschoolInvertedPendulum-v1", exp_name, seed=seed, debug=debug,
+              value_fn=value_fn, min_timesteps_per_batch=5000, n_iter=50, gamma=0.95,
+              render_every=1000, save_every=45)
 
 
 def train_lander(n_experiments=3, seed=123, debug=False, exp_name="ppo-lander"):
     value_fn = FC_NN([64, 64], 1)
-    train("LunarLanderContinuous-v2", exp_name, n_experiments, seed=seed, debug=debug, value_fn_class=value_fn,
-          min_timesteps_per_batch=40000, render_every=1000, save_every=90)
+    for i in range(1, n_experiments + 1):
+        seed += i
+        train("LunarLanderContinuous-v2", exp_name, seed=seed, debug=debug, value_fn=value_fn,
+              min_timesteps_per_batch=40000, render_every=1000, save_every=90)
 
 
 def train_half_cheetah(n_experiments=3, seed=1, debug=False, exp_name="ppo-half-cheetah"):
     value_fn = FC_NN([64, 64], 1)
-    train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed=seed, debug=debug, value_fn_class=value_fn,
-          min_timesteps_per_batch=50000, render_every=1000, save_every=90)
+    for i in range(1, n_experiments + 1):
+        seed += i
+        train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed=seed, debug=debug, value_fn=value_fn,
+              min_timesteps_per_batch=50000, render_every=1000, save_every=90)
 
 
 if __name__ == "__main__":
