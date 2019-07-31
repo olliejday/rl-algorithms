@@ -114,3 +114,25 @@ class PPOBuffer:
         rwds = np.hstack([reward_to_go(rwd, gamma)[:-1] for rwd in self.rwds])
 
         return rwds, advs
+
+    def extend(self, buffer):
+        """
+        Extends this buffer with another.
+        """
+        # if we have an empty buffer we fill it
+        if self.length == 0:
+            self.length = buffer.length
+            self.obs = buffer.obs
+            self.acs = buffer.acs
+            self.rwds = buffer.rwds
+            self.logprobs = buffer.logprobs
+            self.vals = buffer.vals
+
+        # otherwise we extend it
+        else:
+            self.length += buffer.length
+            self.obs.extend(buffer.obs)
+            self.acs.extend(buffer.acs)
+            self.rwds.extend(buffer.rwds)
+            self.logprobs.extend(buffer.logprobs)
+            self.vals.extend(buffer.vals)

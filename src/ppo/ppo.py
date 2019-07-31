@@ -3,6 +3,7 @@ import numpy as np
 import time
 import os
 import gym
+import logging
 
 from src.ppo.utils import PPOBuffer
 from src.ppo.models import DiscretePolicy, ContinuousPolicy
@@ -11,6 +12,10 @@ from src.ppo.models import DiscretePolicy, ContinuousPolicy
 class ProximalPolicyOptimisation:
     def __init__(self,
                  env,
+                 comm,
+                 controller,
+                 rank,
+                 sess_config=None,
                  hidden_layer_sizes=[64, 64],
                  experiments_path="",
                  policy_learning_rate=5e-3,
@@ -34,6 +39,14 @@ class ProximalPolicyOptimisation:
         ----------
         env: gym.Env
             gym environment to train on.
+        comm:
+            an MPI communicator
+        controller: int
+            rank of the controller process
+        rank: int
+            rank of this process
+        sess_config: tf.ConfigProto
+            tf session conifuration, None for default
         hidden_layer_sizes: list
             List of ints for the number of units to have in the hidden layers
         experiments_path: string
@@ -75,6 +88,12 @@ class ProximalPolicyOptimisation:
         else:
             self.ac_dim = env.action_space.shape[0]
 
+        # MPI settings
+        self.comm = comm
+        self.controller = controller
+        self.rank = rank
+        self.sess_config = sess_config
+
         self.experiments_path = experiments_path
 
         self.hidden_layer_sizes = hidden_layer_sizes
@@ -92,7 +111,7 @@ class ProximalPolicyOptimisation:
         self.normalise_advantages = normalise_advantages
 
         # make directory to save models
-        if self.experiments_path != "":
+        if self.experiments_path != None:
             save_dir = os.path.join(self.experiments_path, "models")
             if not os.path.exists(save_dir):
                 print("Made model directory: {}".format(save_dir))
@@ -181,16 +200,18 @@ class ProximalPolicyOptimisation:
         self.init_tf()
 
     def init_tf(self):
-        self.sess = tf.keras.backend.get_session()
+        self.sess = tf.Session(config=self.sess_config)
         self.sess.run(tf.global_variables_initializer())
 
     def save_model(self, timestep):
         """
         Save current policy model.
         """
-        if self.experiments_path != "":
+        if self.experiments_path != None:
             fpath = os.path.join(self.experiments_path, "models", "model-{}.h5".format(timestep))
             self.policy.save_weights(fpath)
+        else:
+            logging.info("Experiments path None in save_model")
 
     def load_model(self, model_path=None):
         """
@@ -214,7 +235,7 @@ class ProximalPolicyOptimisation:
         while True:
             animate_this_episode = (buffer.length == -1 and itr % self.render_every == 0)
             self.sample_trajectory(buffer, animate_this_episode)
-            if buffer.length > self.min_timesteps_per_batch:
+            if buffer.length > self.min_timesteps_per_batch / self.comm.Get_size():
                 break
             buffer.next()
         return buffer
@@ -270,6 +291,20 @@ class ProximalPolicyOptimisation:
                                              self.acs_ph: acs,
                                              self.prev_logprob_ph: logprobs})
         return approx_entropy, approx_kl
+
+    def sync_weights(self):
+        """
+        Sync the weights between model on all processes
+        using MPI.
+        """
+        if self.rank == self.controller:
+            self.comm.bcast(self.sess.run(
+                tf.trainable_variables()), self.controller)
+        else:
+            sync_vars = self.comm.bcast(None, self.controller)
+            t_vars = tf.trainable_variables()
+            for pair in zip(t_vars, sync_vars):
+                self.sess.run(tf.assign(pair[0], pair[1]))
 
 
 def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):

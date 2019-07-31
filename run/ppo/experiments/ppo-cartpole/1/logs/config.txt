@@ -1,9 +1,0 @@
-
-        policy_learning_rate: 0.003
-        value_function_learning_rate: 0.005
-        hidden_layer_size: [64, 64]
-        nn_basline: <src.ppo.models.FC_NN object at 0x7f2efc9d2438>
-        max_path_length: 1000
-        min_timesteps_per_batch: 2500
-        gamma: 0.99
-        normalise_advntages: True
