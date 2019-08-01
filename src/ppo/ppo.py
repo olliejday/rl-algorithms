@@ -319,6 +319,7 @@ class ProximalPolicyOptimisation:
         """
         # TODO: Note they all have different weights due to random initialisation, but share gradient updates.
         #   This could help exploration?
+        # TODO: make sure this also sends value fn
         # gather the summed weights from all processes
         sync_buffer = np.array(self.sess.run(tf.trainable_variables()))
         sync_vars = self.comm.allreduce(sync_buffer)
