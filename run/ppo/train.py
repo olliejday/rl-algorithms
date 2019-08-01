@@ -83,6 +83,7 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
 
         # only log and save model in the controller
         if rank == controller:
+            # TODO: need to combine logs over procs
             training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),
                                 MeanReturn=np.mean(returns),
                                 Timesteps=timesteps,

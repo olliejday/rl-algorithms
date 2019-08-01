@@ -318,6 +318,19 @@ class ProximalPolicyOptimisation:
         Sync the gradients between models on all processes using MPI.
         """
         # TODO: Here we average weights, should be average gradients?
+        """
+        # in update()
+        policy_grads = self.sess.run(self.policy_compute_grads, {})
+        val_grads = self.sess.run(self.val_compute_grads, {})
+        return policy_grads, val_grads, ...
+        ...
+        # here
+        grads = comm.allreduce(np.array(pol_grads, val_grads)) 
+        grads = grads / n_procs
+        self.policy_apply(grads[0])
+        self.val_fn_apply(grads[1])
+        
+        """
         # TODO: make sure this also sends value fn
         # gather the summed weights from all processes
         sync_buffer = np.array(self.sess.run(tf.trainable_variables()))
