@@ -70,7 +70,7 @@ class ProximalPolicyOptimisation:
         max_path_length: int
             Max number of timesteps in an episode before stopping.
         min_timesteps_per_batch: int
-            Min number of timesteps to gather for use in training updates.
+            Min number of timesteps to gather for use in training updates (total to be split over MPI processes).
         gamma: float
             Discount rate
         gae_lambda: float
@@ -252,6 +252,7 @@ class ProximalPolicyOptimisation:
         while True:
             animate_this_episode = (buffer.length == -1 and itr % self.render_every == 0)
             self.sample_trajectory(buffer, animate_this_episode)
+            # we only get the split of the total data we need per process
             if buffer.length > self.min_timesteps_per_batch / self.comm.Get_size():
                 break
             buffer.next()
@@ -314,17 +315,19 @@ class ProximalPolicyOptimisation:
 
     def sync_weights(self):
         """
-        Sync the weights between model on all processes
-        using MPI.
+        Sync the gradients between models on all processes using MPI.
         """
-        if self.rank == self.controller:
-            self.comm.bcast(self.sess.run(
-                tf.trainable_variables()), self.controller)
-        else:
-            sync_vars = self.comm.bcast(None, self.controller)
-            t_vars = tf.trainable_variables()
-            for pair in zip(t_vars, sync_vars):
-                self.sess.run(tf.assign(pair[0], pair[1]))
+        # TODO: Note they all have different weights due to random initialisation, but share gradient updates.
+        #   This could help exploration?
+        # gather the summed weights from all processes
+        sync_buffer = np.array(self.sess.run(tf.trainable_variables()))
+        sync_vars = self.comm.allreduce(sync_buffer)
+        # average
+        sync_vars = sync_vars / self.comm.Get_size()
+        # update the model
+        t_vars = tf.trainable_variables()
+        for pair in zip(t_vars, sync_vars):
+            self.sess.run(tf.assign(pair[0], pair[1]))
 
 
 def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):

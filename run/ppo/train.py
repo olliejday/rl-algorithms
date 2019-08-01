@@ -61,33 +61,28 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
     timesteps = 0
 
     for itr in range(1, n_iter + 1):
-        train_buffer = PPOBuffer()
+        # gather data
+        buffer = ppo.sample_trajectories(itr)
+        # get one long sequence of observations and actions
+        # we keep rewards in trajectories until we discount
+        obs = buffer.get_obs()
+        acs = buffer.get_acs()
+        logprobs = buffer.get_logprobs()
+        # rewards kept within episodes, undiscounted for logging
+        raw_rwds = buffer.rwds
+        # advantages and rewards to go with GAE for updates
+        rwds, advs = buffer.get_gae(ppo.gamma, ppo.gae_lambda)
+
+        approx_entropy, approx_kl = ppo.update_parameters(obs, acs, rwds, advs, logprobs)
+
+        ppo.sync_weights()
+
+        returns = [sum(r) for r in raw_rwds]
+        ep_lens = [len(r) for r in raw_rwds]
+        timesteps += np.sum(ep_lens)
+
+        # only log and save model in the controller
         if rank == controller:
-            buffer_batch = comm.gather(ppo.sample_trajectories(itr), controller)
-            for buffer in buffer_batch:
-                train_buffer.extend(buffer)
-        else:
-            comm.gather(ppo.sample_trajectories(itr), controller)
-
-        if rank == controller:
-            # get one long sequence of observations and actions
-            # we keep rewards in trajectories until we discount
-            obs = train_buffer.get_obs()
-            acs = train_buffer.get_acs()
-            logprobs = train_buffer.get_logprobs()
-            # rewards kept within episodes, undiscounted for logging
-            raw_rwds = train_buffer.rwds
-            # advantages and rewards to go with GAE for updates
-            rwds, advs = train_buffer.get_gae(ppo.gamma, ppo.gae_lambda)
-
-            approx_entropy, approx_kl = ppo.update_parameters(obs, acs, rwds, advs, logprobs)
-
-            ppo.sync_weights()
-
-            returns = [sum(r) for r in raw_rwds]
-            ep_lens = [len(r) for r in raw_rwds]
-            timesteps += np.sum(ep_lens)
-
             training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),
                                 MeanReturn=np.mean(returns),
                                 Timesteps=timesteps,
@@ -100,11 +95,9 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
                                 Entropy=approx_entropy,
                                 KL=approx_kl
                                 )
-        else:
-            ppo.sync_weights()
 
-        if itr % save_every == 0:
-            ppo.save_model(timesteps)
+            if itr % save_every == 0:
+                ppo.save_model(timesteps)
 
     env.close()
 
