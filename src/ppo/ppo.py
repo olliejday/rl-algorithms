@@ -317,8 +317,7 @@ class ProximalPolicyOptimisation:
         """
         Sync the gradients between models on all processes using MPI.
         """
-        # TODO: Note they all have different weights due to random initialisation, but share gradient updates.
-        #   This could help exploration?
+        # TODO: Here we average weights, should be average gradients?
         # TODO: make sure this also sends value fn
         # gather the summed weights from all processes
         sync_buffer = np.array(self.sess.run(tf.trainable_variables()))
