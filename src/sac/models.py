@@ -93,6 +93,12 @@ class GaussianPolicy(tf.keras.Model):
 
 
 class QFunctionDiscrete(tf.keras.Model):
+    """
+    DQN style Q function, where the state is input and values for all actions are computed.
+
+    ie. Q(s) -> [a1, a2, ..., aN]
+    """
+
     def __init__(self, ac_dim, hidden_layer_sizes, **kwargs):
         super(QFunctionDiscrete, self).__init__(**kwargs)
         self.model = tf.keras.Sequential()
@@ -108,7 +114,7 @@ class QFunctionDiscrete(tf.keras.Model):
         state, action = inputs
         q_values = self.q_values(state)
         q_value_ac = tf.keras.layers.Lambda(lambda x: gather_nd(x, action, name="q_value_ac"),
-                                                 name="q_value_ac")(q_values)
+                                            name="q_value_ac")(q_values)
         return q_value_ac
 
     def q_values(self, state):
@@ -118,6 +124,59 @@ class QFunctionDiscrete(tf.keras.Model):
         """
         q_values = self.model(state)
         return q_values
+
+
+class QFunctionDiscreteSingleAction(tf.keras.Model):
+    """
+    Single action Q model. Where state and action are input and one q value is output.
+
+    ie. Q(s, a) -> q val
+
+    Action inputs are one hot encoded
+    """
+    # TODO: needs testin!
+    def __init__(self, ac_dim, hidden_layer_sizes, **kwargs):
+        super(QFunctionDiscrete, self).__init__(**kwargs)
+        self.ac_dim = ac_dim
+        self.model = tf.keras.Sequential()
+        for hidden_units in hidden_layer_sizes:
+            self.model.add(tf.keras.layers.Dense(hidden_units, activation='relu'))
+        self.model.add(tf.keras.layers.Dense(1, activation=None))
+
+    def call(self, inputs):
+        """
+        Sets up ops for Q value of state, action for inputs [state, action]
+        Returns Q function estimate.
+        """
+        state, action = inputs
+        action_encoded = self.encode_action(action)
+        model_inputs = tf.keras.layers.Concatenate(axis=1)([state, action_encoded])
+        q_value = self.model(model_inputs)
+        return q_value
+
+    def q_values(self, state):
+        """
+        Sets up ops to get Q function estimates of all actions for input state `inputs`.
+        Returns array of Q values (ac_dim,)
+        """
+        q_values = []
+        for ac in range(self.ac_dim):
+            ac_enc = self.encode_action(ac)
+            q_values.append(self.call((state, ac_enc)))
+        return q_values
+
+    def encode_action(self, ac):
+        """
+        One-hot encodes an action for input
+        :param ac: action integer
+        :return: one-hot encoded action
+        """
+        assert np.shape(ac) == (), "Requires integer input, recieved {} in " \
+                                   "QFnDiscreteSingleAction.encode_action()".format(ac)
+        enc = np.zeros((self.ac_dim,))
+        enc[ac] = 1.0
+        return enc
+
 
 class CategoricalPolicy(tf.keras.Model):
     def __init__(self, action_dim, hidden_layer_sizes, **kwargs):
