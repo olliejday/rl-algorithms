@@ -4,7 +4,8 @@ import gym
 import tensorflow as tf
 import time
 
-from src.sac.models import GaussianPolicy, ValueFunction, QFunctionContinuous, CategoricalPolicy, QFunctionDiscrete
+from src.sac.models import GaussianPolicy, ValueFunction, QFunctionContinuous, CategoricalPolicy, QFunctionDiscrete, \
+    QFunctionDiscreteSingleAction
 
 
 class SAC:
@@ -63,9 +64,9 @@ class SAC:
 
     def build(self, q_function_params, value_function_params, policy_params):
         if self.discrete:
-            self.q_function = QFunctionDiscrete(self.ac_dim, name='q_function', **q_function_params)
+            self.q_function = QFunctionDiscreteSingleAction(self.ac_dim, name='q_function', **q_function_params)
             if self._two_qf:
-                self.q_function2 = QFunctionDiscrete(self.ac_dim, name='q_function2', **q_function_params)
+                self.q_function2 = QFunctionDiscreteSingleAction(self.ac_dim, name='q_function2', **q_function_params)
             else:
                 self.q_function2 = None
             self.policy = CategoricalPolicy(

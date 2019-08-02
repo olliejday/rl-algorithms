@@ -136,7 +136,7 @@ class QFunctionDiscreteSingleAction(tf.keras.Model):
     """
     # TODO: needs testin!
     def __init__(self, ac_dim, hidden_layer_sizes, **kwargs):
-        super(QFunctionDiscrete, self).__init__(**kwargs)
+        super(QFunctionDiscreteSingleAction, self).__init__(**kwargs)
         self.ac_dim = ac_dim
         self.model = tf.keras.Sequential()
         for hidden_units in hidden_layer_sizes:
@@ -149,9 +149,14 @@ class QFunctionDiscreteSingleAction(tf.keras.Model):
         Returns Q function estimate.
         """
         state, action = inputs
-        action_encoded = self.encode_action(action)
+        b_size = tf.shape(state)[0]
+        acs = tf.ones(b_size, dtype=tf.int32) * action
+        action_encoded = self.encode_action(acs)
+        action_encoded = tf.reshape(action_encoded, (b_size, self.ac_dim))
+        print(state, action_encoded)
         model_inputs = tf.keras.layers.Concatenate(axis=1)([state, action_encoded])
         q_value = self.model(model_inputs)
+        print("q_val", q_value)
         return q_value
 
     def q_values(self, state):
@@ -161,21 +166,23 @@ class QFunctionDiscreteSingleAction(tf.keras.Model):
         """
         q_values = []
         for ac in range(self.ac_dim):
-            ac_enc = self.encode_action(ac)
-            q_values.append(self.call((state, ac_enc)))
-        return q_values
+            # get one hot action for `ac` stacked for N times for N states input
+            b_size = tf.shape(state)[0]
+            acs = tf.ones(b_size, dtype=tf.int32) * ac
+            actions = self.encode_action(acs)
+            model_inputs = tf.keras.layers.Concatenate(axis=1)([state, actions])
+            q_values.append(self.model(model_inputs))
+        q_values_stacked = tf.stack(q_values, axis=1)
+        return q_values_stacked
 
-    def encode_action(self, ac):
+    def encode_action(self, acs):
         """
-        One-hot encodes an action for input
-        :param ac: action integer
+        Ops to one-hot encodes an action for input
+        :param acs: actions tensor
         :return: one-hot encoded action
         """
-        assert np.shape(ac) == (), "Requires integer input, recieved {} in " \
-                                   "QFnDiscreteSingleAction.encode_action()".format(ac)
-        enc = np.zeros((self.ac_dim,))
-        enc[ac] = 1.0
-        return enc
+        actions = tf.one_hot(indices=acs, depth=self.ac_dim)
+        return actions
 
 
 class CategoricalPolicy(tf.keras.Model):
