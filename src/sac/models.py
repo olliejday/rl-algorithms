@@ -134,7 +134,6 @@ class QFunctionDiscreteSingleAction(tf.keras.Model):
 
     Action inputs are one hot encoded
     """
-    # TODO: needs testin!
     def __init__(self, ac_dim, hidden_layer_sizes, **kwargs):
         super(QFunctionDiscreteSingleAction, self).__init__(**kwargs)
         self.ac_dim = ac_dim
@@ -148,6 +147,7 @@ class QFunctionDiscreteSingleAction(tf.keras.Model):
         Sets up ops for Q value of state, action for inputs [state, action]
         Returns Q function estimate.
         """
+        # TODO: document this and below 2 fns, also needs testing!
         state, action = inputs
         b_size = tf.shape(state)[0]
         acs = tf.ones(b_size, dtype=tf.int32) * action
