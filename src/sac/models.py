@@ -178,7 +178,7 @@ class QFunctionDiscreteActionInputs(tf.keras.Model):
         """
         actions_encoded = tf.keras.layers.Lambda(
             lambda x: tf.keras.backend.one_hot(tf.keras.backend.cast(x, 'int64'), self.ac_dim))(acs)
-        return acs
+        return actions_encoded
 
 
 class CategoricalPolicy(tf.keras.Model):
