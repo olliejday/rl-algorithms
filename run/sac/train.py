@@ -135,8 +135,11 @@ def _train(env_name, exp_name, seed, algorithm_params, debug=True, save_every=45
         if epoch % save_every == 0:
             sac.save_model(timesteps)
 
+# TODO: 5. test lander (discrete) - cf. DQN
+# TODO: 8. test atari (discrete) - cf. DQN
 
 def train_cartpole():
+    # TODO: 4. test cartpole (discrete) - cf. PPO etc.
     algorithm_params = {
         'alpha': 0.2,
         'batch_size': 256,

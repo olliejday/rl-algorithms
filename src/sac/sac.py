@@ -7,6 +7,7 @@ import time
 from src.sac.models import GaussianPolicy, ValueFunction, QFunctionContinuous, CategoricalPolicy, QFunctionDiscrete, \
     QFunctionDiscreteActionInputs
 
+# TODO: 6. look for tips and tricks on stable baselines and spin up eg. normalisations
 
 class SAC:
     """Soft Actor-Critic (SAC)
