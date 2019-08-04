@@ -126,16 +126,19 @@ class QFunctionDiscrete(tf.keras.Model):
         return q_values
 
 
-class QFunctionDiscreteSingleAction(tf.keras.Model):
+class QFunctionDiscreteActionInputs(tf.keras.Model):
     """
-    Single action Q model. Where state and action are input and one q value is output.
+    Q model where the state and action are concatenated as input and one q value is output.
 
     ie. Q(s, a) -> q val
 
-    Action inputs are one hot encoded
+    Action inputs are one hot encoded.
+
+    NOTE: this doesn't work very well in our experiments but is included for completeness.
     """
+
     def __init__(self, ac_dim, hidden_layer_sizes, **kwargs):
-        super(QFunctionDiscreteSingleAction, self).__init__(**kwargs)
+        super(QFunctionDiscreteActionInputs, self).__init__(**kwargs)
         self.ac_dim = ac_dim
         self.model = tf.keras.Sequential()
         for hidden_units in hidden_layer_sizes:
@@ -145,33 +148,25 @@ class QFunctionDiscreteSingleAction(tf.keras.Model):
     def call(self, inputs):
         """
         Sets up ops for Q value of state, action for inputs [state, action]
-        Returns Q function estimate.
+        Returns Q function estimates (batch size, 1).
         """
-        # TODO: document this and below 2 fns, also needs testing!
         state, action = inputs
-        b_size = tf.shape(state)[0]
-        acs = tf.ones(b_size, dtype=tf.int32) * action
-        action_encoded = self.encode_action(acs)
-        action_encoded = tf.reshape(action_encoded, (b_size, self.ac_dim))
-        print(state, action_encoded)
-        model_inputs = tf.keras.layers.Concatenate(axis=1)([state, action_encoded])
+        action_encoded = self.encode_action(action)
+        model_inputs = tf.keras.layers.Lambda(lambda x: tf.concat(x, axis=1))([state, action_encoded])
         q_value = self.model(model_inputs)
-        print("q_val", q_value)
         return q_value
 
     def q_values(self, state):
         """
         Sets up ops to get Q function estimates of all actions for input state `inputs`.
-        Returns array of Q values (ac_dim,)
+        Returns array of Q values (batch size, ac_dim)
         """
         q_values = []
         for ac in range(self.ac_dim):
             # get one hot action for `ac` stacked for N times for N states input
             b_size = tf.shape(state)[0]
             acs = tf.ones(b_size, dtype=tf.int32) * ac
-            actions = self.encode_action(acs)
-            model_inputs = tf.keras.layers.Concatenate(axis=1)([state, actions])
-            q_values.append(self.model(model_inputs))
+            q_values.append(self.call([state, acs]))
         q_values_stacked = tf.stack(q_values, axis=1)
         return q_values_stacked
 
@@ -181,8 +176,9 @@ class QFunctionDiscreteSingleAction(tf.keras.Model):
         :param acs: actions tensor
         :return: one-hot encoded action
         """
-        actions = tf.one_hot(indices=acs, depth=self.ac_dim)
-        return actions
+        actions_encoded = tf.keras.layers.Lambda(
+            lambda x: tf.keras.backend.one_hot(tf.keras.backend.cast(x, 'int64'), self.ac_dim))(acs)
+        return acs
 
 
 class CategoricalPolicy(tf.keras.Model):

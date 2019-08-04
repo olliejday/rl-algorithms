@@ -5,7 +5,7 @@ import tensorflow as tf
 import time
 
 from src.sac.models import GaussianPolicy, ValueFunction, QFunctionContinuous, CategoricalPolicy, QFunctionDiscrete, \
-    QFunctionDiscreteSingleAction
+    QFunctionDiscreteActionInputs
 
 
 class SAC:
@@ -64,9 +64,9 @@ class SAC:
 
     def build(self, q_function_params, value_function_params, policy_params):
         if self.discrete:
-            self.q_function = QFunctionDiscreteSingleAction(self.ac_dim, name='q_function', **q_function_params)
+            self.q_function = QFunctionDiscrete(self.ac_dim, name='q_function', **q_function_params)
             if self._two_qf:
-                self.q_function2 = QFunctionDiscreteSingleAction(self.ac_dim, name='q_function2', **q_function_params)
+                self.q_function2 = QFunctionDiscrete(self.ac_dim, name='q_function2', **q_function_params)
             else:
                 self.q_function2 = None
             self.policy = CategoricalPolicy(
@@ -217,7 +217,6 @@ class SAC:
 
 
     def _q_function_loss_for(self, q_function):
-        # TODO: does Q loss need a discrete version?
         q_value_estimates = q_function([self._observations_ph, self._actions_ph])
         target_value_estimates = self.target_value_function(self._next_observations_ph)
         # incorporate discount and the terminal mask
