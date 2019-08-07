@@ -335,6 +335,16 @@ class ProximalPolicyOptimisation:
         avg_grads = sync_grads / self.comm.Get_size()
         return avg_grads
 
+    def sync_params(self):
+        """
+        Sync parameters on all MPI processes. Call this initially to sync them all, then the gradient averaging
+        should take care of keeping them the same.
+        """
+        # TODO: do I need to sync if averaging all the same? Spin up does! But same init might work? or maybe just do once at start
+        #   then rely on averaging to keep same?
+        sync_params = self.comm.bcast(tf.global_variables(), root=self.controller)
+
+
 
 def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):
     """
