@@ -3,7 +3,8 @@ import numpy as np
 import time
 import os
 
-from src.vpg.utils import GradientBatchTrainer, normalise, VPGBuffer
+from src.vpg.utils import normalise, VPGBuffer
+from src.common.utils import GradientBatchTrainer
 from src.vpg.models import DiscretePolicy, ContinuousPolicy
 
 

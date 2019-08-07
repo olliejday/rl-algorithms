@@ -7,6 +7,7 @@ import logging
 
 from src.ppo.utils import PPOBuffer
 from src.ppo.models import DiscretePolicy, ContinuousPolicy
+from src.common.utils import GradientBatchTrainer
 
 
 class ProximalPolicyOptimisation:
@@ -196,14 +197,12 @@ class ProximalPolicyOptimisation:
         probs = tf.exp(self.logprob_ac)
         self.policy_entropy = tf.reduce_sum(-(self.logprob_ac * probs))
         loss = surrogate_loss - self.entropy_coefficient * self.policy_entropy
-        optimizer = tf.train.AdamOptimizer(self.policy_learning_rate)
-        self.policy_update = optimizer.minimize(loss)
+        self.policy_trainer = GradientBatchTrainer(loss, self.policy_learning_rate)
 
         self.value_fn_prediction = self.value_fn(self.obs_ph)
         value_loss = 0.5 * tf.reduce_sum((self.value_fn_prediction - self.value_targets) ** 2,
                                             name="value_fn_loss")
-        val_optimizer = tf.train.AdamOptimizer(self.value_fn_learning_rate)
-        self.value_fn_update = val_optimizer.minimize(value_loss)
+        self.value_fn_trainer = GradientBatchTrainer(value_loss, self.value_fn_learning_rate)
 
     def setup_graph(self):
         """
@@ -292,6 +291,7 @@ class ProximalPolicyOptimisation:
         """
         # Optimizing Neural Network Baseline
         for _ in range(self.n_value_fn_updates):
+            # TODO: how to handle this loop wrt. compute_gradients then MPI?
             self.sess.run(self.value_fn_update, feed_dict={self.obs_ph: obs,
                                                            self.value_targets: rwds})
         # compute entropy before update
@@ -311,6 +311,7 @@ class ProximalPolicyOptimisation:
                                                  self.prev_logprob_ph: logprobs})
             if approx_kl > 1.5 * self.target_kl:
                 break
+        # TODO: return grads_and_vars or do the MPI here? definitely make it a function whether it's called here or elsewhere.
         return policy_entropy, approx_kl
 
     def sync_weights(self):
