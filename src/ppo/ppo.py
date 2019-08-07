@@ -32,7 +32,8 @@ class ProximalPolicyOptimisation:
                  gae_lambda=0.97,
                  normalise_advantages=True,
                  entropy_coefficient=1e-4,
-                 target_kl=0.01
+                 target_kl=0.01,
+                 gradient_batch_size=1000
                  ):
 
         """
@@ -82,6 +83,9 @@ class ProximalPolicyOptimisation:
             Trades off the entropy term in the PPO loss
         target_kl: float
             KL divergence range acceptable between old and updated policy. Used for early stopping policy updates
+        gradient_batch_size: int
+            To split a batch into mini-batches which the gradient is averaged over to allow larger
+            min_timesteps_per_batch than fits into GPU memory in one go.
         """
         assert value_fn is not None, "Must provide value function."
 
@@ -117,6 +121,7 @@ class ProximalPolicyOptimisation:
         self.normalise_advantages = normalise_advantages
         self.entropy_coefficient = entropy_coefficient
         self.target_kl = target_kl
+        self.gradient_batch_size = gradient_batch_size
 
         # make directory to save models
         if self.experiments_path != None:
@@ -140,7 +145,9 @@ class ProximalPolicyOptimisation:
             clip_ratio: {}
             gae_lambda: {}
             entropy_coefficient: {}
-            target_kl: {}""".format(
+            target_kl: {}
+            gradient_batch_size: {}
+            """.format(
             self.policy_learning_rate,
             self.value_fn_learning_rate,
             self.hidden_layer_sizes,
@@ -151,7 +158,8 @@ class ProximalPolicyOptimisation:
             self.clip_ratio,
             self.gae_lambda,
             self.entropy_coefficient,
-            self.target_kl)
+            self.target_kl,
+            self.gradient_batch_size)
         return to_string
 
     def setup_placeholders(self):
@@ -201,7 +209,7 @@ class ProximalPolicyOptimisation:
 
         self.value_fn_prediction = self.value_fn(self.obs_ph)
         value_loss = 0.5 * tf.reduce_sum((self.value_fn_prediction - self.value_targets) ** 2,
-                                            name="value_fn_loss")
+                                         name="value_fn_loss")
         self.value_fn_trainer = GradientBatchTrainer(value_loss, self.value_fn_learning_rate)
 
     def setup_graph(self):
@@ -291,19 +299,24 @@ class ProximalPolicyOptimisation:
         """
         # Optimizing Neural Network Baseline
         for _ in range(self.n_value_fn_updates):
-            # TODO: how to handle this loop wrt. compute_gradients then MPI?
-            self.sess.run(self.value_fn_update, feed_dict={self.obs_ph: obs,
-                                                           self.value_targets: rwds})
+            grads_and_vars = self.value_fn_trainer.compute_gradients(
+                feed_dict={self.obs_ph: obs, self.value_targets: rwds},
+                sess=self.sess, batch_size=self.gradient_batch_size)
+            sync_grads_and_vars = self.sync_params(grads_and_vars)
+            self.value_fn_trainer.apply_gradients(sync_grads_and_vars, self.sess)
         # compute entropy before update
         policy_entropy = self.sess.run(self.policy_entropy,
                                        feed_dict={self.obs_ph: obs,
                                                   self.acs_ph: acs})
         # Performing the Policy Update
         for _ in range(self.n_policy_updates):
-            self.sess.run(self.policy_update, feed_dict={self.obs_ph: obs,
-                                                         self.acs_ph: acs,
-                                                         self.adv_ph: advs,
-                                                         self.prev_logprob_ph: logprobs})
+            grads_and_vars = self.policy_trainer.compute_gradients(feed_dict={self.obs_ph: obs,
+                                                             self.acs_ph: acs,
+                                                             self.adv_ph: advs,
+                                                             self.prev_logprob_ph: logprobs}, sess=self.sess,
+                                                  batch_size=self.gradient_batch_size)
+            sync_grads_and_vars = self.sync_params(grads_and_vars)
+            self.policy_trainer.apply_gradients(sync_grads_and_vars, self.sess)
             # get the kl of the update
             approx_kl = self.sess.run(self.approx_kl,
                                       feed_dict={self.obs_ph: obs,
@@ -311,37 +324,15 @@ class ProximalPolicyOptimisation:
                                                  self.prev_logprob_ph: logprobs})
             if approx_kl > 1.5 * self.target_kl:
                 break
-        # TODO: return grads_and_vars or do the MPI here? definitely make it a function whether it's called here or elsewhere.
         return policy_entropy, approx_kl
 
-    def sync_weights(self):
+    def sync_params(self, params):
         """
         Sync the gradients between models on all processes using MPI.
         """
-        # TODO: Here we average weights, should be average gradients?
-        """
-        # in update()
-        policy_grads = self.sess.run(self.policy_compute_grads, {})
-        val_grads = self.sess.run(self.val_compute_grads, {})
-        return policy_grads, val_grads, ...
-        ...
-        # here
-        grads = comm.allreduce(np.array(pol_grads, val_grads)) 
-        grads = grads / n_procs
-        self.policy_apply(grads[0])
-        self.val_fn_apply(grads[1])
-        
-        """
-        # TODO: make sure this also sends value fn
-        # gather the summed weights from all processes
-        sync_buffer = np.array(self.sess.run(tf.trainable_variables()))
-        sync_vars = self.comm.allreduce(sync_buffer)
-        # average
-        sync_vars = sync_vars / self.comm.Get_size()
-        # update the model
-        t_vars = tf.trainable_variables()
-        for pair in zip(t_vars, sync_vars):
-            self.sess.run(tf.assign(pair[0], pair[1]))
+        grads = self.comm.allreduce(np.array(params))
+        avg_grads = grads / self.comm.Get_size()
+        return avg_grads
 
 
 def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):

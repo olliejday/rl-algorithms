@@ -14,6 +14,7 @@ from src.common.utils import set_global_seeds, TrainingLogger
 
 
 def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwargs):
+    # TODO: see spin up for MPI setup and call from within Python
     """
     MPI training function
 
@@ -75,15 +76,16 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
 
         approx_entropy, approx_kl = ppo.update_parameters(obs, acs, rwds, advs, logprobs)
 
-        ppo.sync_weights()
-
         returns = [sum(r) for r in raw_rwds]
         ep_lens = [len(r) for r in raw_rwds]
-        timesteps += np.sum(ep_lens)
 
-        # only log and save model in the controller
+        # send all logs to controller
+        returns = comm.gather(returns, root=controller)
+        ep_lens = comm.gather(ep_lens, root=controller)
         if rank == controller:
-            # TODO: need to combine logs over procs
+            # logs are only sent to controller so we only log and save model in the controller
+            print(ep_lens)
+            timesteps += len(ep_lens)
             training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),
                                 MeanReturn=np.mean(returns),
                                 Timesteps=timesteps,

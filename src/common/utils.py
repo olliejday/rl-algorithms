@@ -186,7 +186,6 @@ class GradientBatchTrainer:
 
        """
     def __init__(self, loss_op, learning_rate, average_gradient_batches=True):
-        # TODO: make sure this works for smaller overall batch sizes ie. where we have one gradient sub batch and it's not really needed.
         """
         Sets up the gradient batching and averaging TF operations.
         :param loss_op: Loss to optimise
@@ -236,6 +235,9 @@ class GradientBatchTrainer:
         Returns data split into an array of batches of size batch_size.
         With additional data in a smaller batch if more than batch_size * min_batch amount in there
         """
+        # if too big a batch size then use all the data
+        if batch_size > len(data):
+            batch_size = len(data)
         n = int(len(data) / batch_size)
         batches = [data[i * batch_size:(i + 1) * batch_size] for i in range(n)]
         # add any extras if not exact batch size
@@ -286,7 +288,7 @@ class GradientBatchTrainer:
         sess.run(self.zero_ops)
         for fd in self.get_feed_dicts(feed_dict, batch_size):
             sess.run(self.accumulate_ops, feed_dict=fd)
-        return sess.run(self.accumulation_gradients)
+        return sess.run(self.accumulation_gradients)  # variable storing the accum grads
 
     def apply_gradients(self, grads_and_vars, sess):
         """
