@@ -205,12 +205,13 @@ class ProximalPolicyOptimisation:
         probs = tf.exp(self.logprob_ac)
         self.policy_entropy = tf.reduce_sum(-(self.logprob_ac * probs))
         loss = surrogate_loss - self.entropy_coefficient * self.policy_entropy
-        self.policy_trainer = GradientBatchTrainer(loss, self.policy_learning_rate)
+        self.policy_trainer = GradientBatchTrainer(loss, self.policy_learning_rate, self.policy.trainable_variables)
 
         self.value_fn_prediction = self.value_fn(self.obs_ph)
         value_loss = 0.5 * tf.reduce_sum((self.value_fn_prediction - self.value_targets) ** 2,
                                          name="value_fn_loss")
-        self.value_fn_trainer = GradientBatchTrainer(value_loss, self.value_fn_learning_rate)
+        self.value_fn_trainer = GradientBatchTrainer(value_loss, self.value_fn_learning_rate,
+                                                     self.value_fn.trainable_variables)
 
     def setup_graph(self):
         """
@@ -299,39 +300,39 @@ class ProximalPolicyOptimisation:
         """
         # Optimizing Neural Network Baseline
         for _ in range(self.n_value_fn_updates):
-            grads_and_vars = self.value_fn_trainer.compute_gradients(
+            grads = self.value_fn_trainer.compute_gradients(
                 feed_dict={self.obs_ph: obs, self.value_targets: rwds},
                 sess=self.sess, batch_size=self.gradient_batch_size)
-            sync_grads_and_vars = self.sync_params(grads_and_vars)
-            self.value_fn_trainer.apply_gradients(sync_grads_and_vars, self.sess)
+            sync_grads = self.sync_gradients(grads)
+            self.value_fn_trainer.apply_gradients(sync_grads, sess=self.sess)
         # compute entropy before update
         policy_entropy = self.sess.run(self.policy_entropy,
-                                       feed_dict={self.obs_ph: obs,
-                                                  self.acs_ph: acs})
+                                       feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
+                                                  self.acs_ph: acs[:self.gradient_batch_size],})
         # Performing the Policy Update
         for _ in range(self.n_policy_updates):
-            grads_and_vars = self.policy_trainer.compute_gradients(feed_dict={self.obs_ph: obs,
+            grads = self.policy_trainer.compute_gradients(feed_dict={self.obs_ph: obs,
                                                              self.acs_ph: acs,
                                                              self.adv_ph: advs,
                                                              self.prev_logprob_ph: logprobs}, sess=self.sess,
                                                   batch_size=self.gradient_batch_size)
-            sync_grads_and_vars = self.sync_params(grads_and_vars)
+            sync_grads_and_vars = self.sync_gradients(grads)
             self.policy_trainer.apply_gradients(sync_grads_and_vars, self.sess)
             # get the kl of the update
             approx_kl = self.sess.run(self.approx_kl,
-                                      feed_dict={self.obs_ph: obs,
-                                                 self.acs_ph: acs,
-                                                 self.prev_logprob_ph: logprobs})
+                                      feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
+                                                 self.acs_ph: acs[:self.gradient_batch_size],
+                                                 self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
             if approx_kl > 1.5 * self.target_kl:
                 break
         return policy_entropy, approx_kl
 
-    def sync_params(self, params):
+    def sync_gradients(self, grads):
         """
-        Sync the gradients between models on all processes using MPI.
+        Sync and average the gradients between models on all processes using MPI.
         """
-        grads = self.comm.allreduce(np.array(params))
-        avg_grads = grads / self.comm.Get_size()
+        sync_grads = self.comm.allreduce(np.array(grads))
+        avg_grads = sync_grads / self.comm.Get_size()
         return avg_grads
 
 

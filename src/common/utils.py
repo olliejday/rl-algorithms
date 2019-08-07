@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import matplotlib.style
 from matplotlib import cm
 
-
 matplotlib.style.use("seaborn")
 
 
@@ -73,7 +72,7 @@ def plot_training_curves(experiments, save_to="", title="Training Curves"):
     plt.title(title)
     plt.ylabel("Mean Episode Return")
     plt.xlabel("Timesteps")
-    plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
+    plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
     plt.legend(loc="best")
 
     if save_to != "":
@@ -85,6 +84,7 @@ class TrainingLogger:
     """
     Logs metrics during training
     """
+
     def __init__(self, experiments_dir, log_cols, config=[""]):
         """
         Creates a training logger
@@ -184,17 +184,31 @@ class GradientBatchTrainer:
        ...
        updater.apply_gradients(grads_and_vars, sess)
 
+
+       ___
+
+       Implementation note:
+
+       tf.train.AdamOptimizer().apply_gradients(x)
+       expects x to be a tf.Tensor. So we use a placeholder for gradients of the sizes
+       of the trainable variables this GradientBatcher is to compute and update gradients for.
+       The gradients can then be manipulated eg. clipped and then applied, without requiring this
+       to all be done with tf ops.
+
        """
-    def __init__(self, loss_op, learning_rate, average_gradient_batches=True):
+
+    def __init__(self, loss_op, learning_rate, trainable_vars=None, average_gradient_batches=True):
         """
         Sets up the gradient batching and averaging TF operations.
         :param loss_op: Loss to optimise
         :param learning_rate: learning rate to use for optimiser
+        :param trainable_vars: trainable variables to update, if None uses tf.trainable_variables()
         :param average_gradient_batches: whether to average the gradient over batches, otherwise it is summed
         """
-        self.optimizer = tf.train.AdamOptimizer(learning_rate)
+        optimizer = tf.train.AdamOptimizer(learning_rate)
         # Fetch a list of our network's trainable parameters.
-        trainable_vars = tf.trainable_variables()
+        if trainable_vars is None:
+            trainable_vars = tf.trainable_variables()
         # Create variables to store accumulated gradients
         accumulators = [
             tf.Variable(
@@ -203,7 +217,11 @@ class GradientBatchTrainer:
             ) for tv in trainable_vars
         ]
         # Compute gradients; grad_pairs contains (gradient, variable) pairs
-        grad_pairs = self.optimizer.compute_gradients(loss_op, trainable_vars)
+        grad_pairs = optimizer.compute_gradients(loss_op, var_list=trainable_vars)
+        # gradient placeholders
+        self.grads_ph = [(tf.placeholder(dtype=tf.float32, shape=v.get_shape()), v) for v in trainable_vars]
+        # operation to apply self.grads_ph to update
+        self.apply_grads_op = optimizer.apply_gradients(self.grads_ph)
         # Create operations which add a variable's gradient to its accumulator.
         self.accumulate_ops = [
             accumulator.assign_add(
@@ -218,10 +236,10 @@ class GradientBatchTrainer:
             # The final accumulation operation is to increment the counter
             self.accumulate_ops.append(accumulation_counter.assign_add(1.0))
             self.accumulation_gradients = [(accumulator / accumulation_counter, var) \
-                 for (accumulator, (grad, var)) in zip(accumulators, grad_pairs)]
+                                           for (accumulator, (grad, var)) in zip(accumulators, grad_pairs)]
         else:
             self.accumulation_gradients = [(accumulator, var) \
-                 for (accumulator, (grad, var)) in zip(accumulators, grad_pairs)]
+                                           for (accumulator, (grad, var)) in zip(accumulators, grad_pairs)]
 
         # Accumulators must be zeroed once the accumulated gradient is applied.
         self.zero_ops = [
@@ -283,17 +301,19 @@ class GradientBatchTrainer:
         :param feed_dict: TF style feed_dict with keys of TF placeholders and values as data.
         :param batch_size: gradient sub-batch size to input to model
         :param sess: TF session to run on.
-        :return: grads_and_vars pairs for update.
+        :return: gradients as list of numpy arrays
         """
         sess.run(self.zero_ops)
         for fd in self.get_feed_dicts(feed_dict, batch_size):
             sess.run(self.accumulate_ops, feed_dict=fd)
-        return sess.run(self.accumulation_gradients)  # variable storing the accum grads
+        gradients = sess.run([g for (g, v) in self.accumulation_gradients])  # variable storing the accum grads
+        return gradients
 
-    def apply_gradients(self, grads_and_vars, sess):
+    def apply_gradients(self, gradients, sess):
         """
         Applies gradients to update model
-        :param grads_and_vars: gradients and variables pairs to apply
+        :param gradients: gradients to apply for update (eg. returned from self.compute_gradients(...))
         :param sess: session to run in
         """
-        sess.run(self.optimizer.apply_gradients(grads_and_vars))
+        sess.run(self.apply_grads_op,
+                 feed_dict={placeholder[0]: grad for placeholder, grad in zip(self.grads_ph, gradients)})

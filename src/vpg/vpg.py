@@ -146,6 +146,7 @@ class VanillaPolicyGradients:
 
         # the policy gradient loss
         loss = - tf.reduce_mean(self.logprob_ac * self.adv_ph, name="loss")
+        # TODO: regression test the new GradBatcher here
         self.policy_batch_trainer = GradientBatchTrainer(loss, self.learning_rate)
 
         if self.nn_baseline:

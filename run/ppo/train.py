@@ -1,5 +1,6 @@
 import gym
 import os
+import sys
 import argparse
 import time
 import numpy as np
@@ -14,7 +15,6 @@ from src.common.utils import set_global_seeds, TrainingLogger
 
 
 def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwargs):
-    # TODO: see spin up for MPI setup and call from within Python
     """
     MPI training function
 
@@ -26,6 +26,8 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
     :param save_every: number of iterations to save models at
     :param kwargs: arguments to pass to VPG model __init__
     """
+    # TODO: see spin up for MPI setup and call from within Python
+
     env = gym.make(env_name)
     set_global_seeds(seed, debug)
     env.seed(seed)
@@ -50,6 +52,7 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
                                      comm,
                                      controller,
                                      rank,
+                                     sess_config=device_config,
                                      experiments_path=experiments_path,
                                      **kwargs)
 
@@ -83,9 +86,10 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
         returns = comm.gather(returns, root=controller)
         ep_lens = comm.gather(ep_lens, root=controller)
         if rank == controller:
+            returns = np.concatenate(returns)
+            ep_lens = np.concatenate(ep_lens)
             # logs are only sent to controller so we only log and save model in the controller
-            print(ep_lens)
-            timesteps += len(ep_lens)
+            timesteps += np.sum(ep_lens)
             training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),
                                 MeanReturn=np.mean(returns),
                                 Timesteps=timesteps,
