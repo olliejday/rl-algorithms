@@ -28,13 +28,16 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
     """
     # TODO: see spin up for MPI setup and call from within Python
 
+    # Setup for MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+
+    # ensure each MPI process has different seed
+    seed *= rank
     env = gym.make(env_name)
     set_global_seeds(seed, debug)
     env.seed(seed)
 
-    # Setup for MPI
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
     n_processes = comm.Get_size()
     controller = 0
     # Enable gpu usage for just the main process for training
@@ -60,7 +63,12 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
         log_cols = ["Iteration", "StdReturn", "MaxReturn", "MinReturn", "EpLenMean", "EpLenStd", "Entropy", "KL"]
         training_logger = TrainingLogger(experiments_path, log_cols, config=[str(ppo)])
 
+    # TODO: ensure works as expected for MPI num = 1
+
+    # setup the TF ops
     ppo.setup_graph()
+    # sync the initial params across processes
+    ppo.sync_params()
 
     timesteps = 0
 

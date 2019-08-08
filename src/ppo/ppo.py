@@ -303,7 +303,7 @@ class ProximalPolicyOptimisation:
             grads = self.value_fn_trainer.compute_gradients(
                 feed_dict={self.obs_ph: obs, self.value_targets: rwds},
                 sess=self.sess, batch_size=self.gradient_batch_size)
-            sync_grads = self.sync_gradients(grads)
+            sync_grads = self.sync_and_average_gradients(grads)
             self.value_fn_trainer.apply_gradients(sync_grads, sess=self.sess)
         # compute entropy before update
         policy_entropy = self.sess.run(self.policy_entropy,
@@ -316,7 +316,7 @@ class ProximalPolicyOptimisation:
                                                              self.adv_ph: advs,
                                                              self.prev_logprob_ph: logprobs}, sess=self.sess,
                                                   batch_size=self.gradient_batch_size)
-            sync_grads_and_vars = self.sync_gradients(grads)
+            sync_grads_and_vars = self.sync_and_average_gradients(grads)
             self.policy_trainer.apply_gradients(sync_grads_and_vars, self.sess)
             # get the kl of the update
             approx_kl = self.sess.run(self.approx_kl,
@@ -327,7 +327,7 @@ class ProximalPolicyOptimisation:
                 break
         return policy_entropy, approx_kl
 
-    def sync_gradients(self, grads):
+    def sync_and_average_gradients(self, grads):
         """
         Sync and average the gradients between models on all processes using MPI.
         """
@@ -340,10 +340,11 @@ class ProximalPolicyOptimisation:
         Sync parameters on all MPI processes. Call this initially to sync them all, then the gradient averaging
         should take care of keeping them the same.
         """
-        # TODO: do I need to sync if averaging all the same? Spin up does! But same init might work? or maybe just do once at start
-        #   then rely on averaging to keep same?
+        # TODO: do I need to sync every update if averaging all the same gradients and sync initially? Baselines does!
         sync_params = self.comm.bcast(tf.global_variables(), root=self.controller)
-
+        if self.rank != self.controller:
+            assign_ops = [tf.assign(param, new_param) for param, new_param in zip(tf.global_variables(), sync_params)]
+            self.sess.run(assign_ops)
 
 
 def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):
