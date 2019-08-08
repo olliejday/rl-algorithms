@@ -124,7 +124,7 @@ def train_cartpole(n_experiments=3, seed=1, n_procs=2, debug=True, exp_name="ppo
               policy_learning_rate=3e-3, value_fn_learning_rate=1e-2)
 
 
-def train_inverted_pendulum(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo-inverted-pendulum"):
+def train_inverted_pendulum(n_experiments=3, seed=1, n_procs=1, debug=True, exp_name="ppo-inverted-pendulum"):
     value_fn = FC_NN([64, 64], 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i
@@ -132,7 +132,7 @@ def train_inverted_pendulum(n_experiments=3, seed=1, n_procs=4, debug=True, exp_
               value_fn=value_fn, min_timesteps_per_batch=5000, n_iter=50, render_every=1000, save_every=45)
 
 
-def train_lander(n_experiments=3, seed=123, n_procs=4, debug=False, exp_name="ppo-lander"):
+def train_lander(n_experiments=3, seed=123, n_procs=2, debug=False, exp_name="ppo-lander"):
     value_fn = FC_NN([64, 64], 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i
@@ -140,7 +140,7 @@ def train_lander(n_experiments=3, seed=123, n_procs=4, debug=False, exp_name="pp
               min_timesteps_per_batch=40000, render_every=1000, save_every=90)
 
 
-def train_half_cheetah(n_experiments=3, seed=1, n_procs=4, debug=False, exp_name="ppo-half-cheetah"):
+def train_half_cheetah(n_experiments=3, seed=1, n_procs=1, debug=False, exp_name="ppo-half-cheetah"):
     value_fn = FC_NN([64, 64], 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i

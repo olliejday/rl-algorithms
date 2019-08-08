@@ -337,8 +337,8 @@ class ProximalPolicyOptimisation:
                 break
 
         # sync the params across processes
-        sync_params(self.policy.variables, self.comm, self.rank, self.controller, self.sess)
-        sync_params(self.value_fn.variables, self.comm, self.rank, self.controller, self.sess)
+        # sync_params(self.policy.variables, self.comm, self.rank, self.controller, self.sess)
+        # sync_params(self.value_fn.variables, self.comm, self.rank, self.controller, self.sess)
 
         return policy_entropy, approx_kl
 
