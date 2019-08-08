@@ -17,13 +17,13 @@ See run/README.md for details of how to run and some example experiments.
 * Soft Actor Critic (SAC)
 * Proximal Policy Optimization (PPO)
 
-## Dependencies
+## Usage
 
-Install dependencies for this project.
+Install this module.
 
 ```
 cd rl-algorithms
-pip3 install -r requirements.txt
+pip3 install -e .
 ```
 
 ## Sources:

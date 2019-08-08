@@ -1,9 +1,8 @@
 gym
-gym[atari]
+gym[atari,box2d,classic_control]
 roboschool
 box2d-py
 tensorflow>=1.13
-keras
 opencv-python
 numpy
 matplotlib
