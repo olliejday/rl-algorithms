@@ -2,7 +2,7 @@ gym
 gym[atari,box2d,classic_control]
 roboschool
 box2d-py
-tensorflow>=1.13
+tensorflow>=1.13,<2.0
 opencv-python
 numpy
 matplotlib
