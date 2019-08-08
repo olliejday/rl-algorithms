@@ -7,7 +7,7 @@ import logging
 
 from src.ppo.utils import PPOBuffer
 from src.ppo.models import DiscretePolicy, ContinuousPolicy
-from src.common.utils import GradientBatchTrainer
+from src.common.utils import GradientBatchTrainer, sync_and_average_gradients, sync_params
 
 
 class ProximalPolicyOptimisation:
@@ -224,6 +224,9 @@ class ProximalPolicyOptimisation:
         self.setup_loss()
         self.init_tf()
 
+        # sync the initial params across processes
+        sync_params(self.comm, self.rank, self.controller, self.sess)
+
     def init_tf(self):
         self.sess = tf.Session(config=self.sess_config)
         self.sess.run(tf.global_variables_initializer())
@@ -303,7 +306,7 @@ class ProximalPolicyOptimisation:
             grads = self.value_fn_trainer.compute_gradients(
                 feed_dict={self.obs_ph: obs, self.value_targets: rwds},
                 sess=self.sess, batch_size=self.gradient_batch_size)
-            sync_grads = self.sync_and_average_gradients(grads)
+            sync_grads = sync_and_average_gradients(self.comm, grads)
             self.value_fn_trainer.apply_gradients(sync_grads, sess=self.sess)
         # compute entropy before update
         policy_entropy = self.sess.run(self.policy_entropy,
@@ -316,8 +319,8 @@ class ProximalPolicyOptimisation:
                                                              self.adv_ph: advs,
                                                              self.prev_logprob_ph: logprobs}, sess=self.sess,
                                                   batch_size=self.gradient_batch_size)
-            sync_grads_and_vars = self.sync_and_average_gradients(grads)
-            self.policy_trainer.apply_gradients(sync_grads_and_vars, self.sess)
+            sync_grads = sync_and_average_gradients(self.comm, grads)
+            self.policy_trainer.apply_gradients(sync_grads, self.sess)
             # get the kl of the update
             approx_kl = self.sess.run(self.approx_kl,
                                       feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
@@ -326,25 +329,6 @@ class ProximalPolicyOptimisation:
             if approx_kl > 1.5 * self.target_kl:
                 break
         return policy_entropy, approx_kl
-
-    def sync_and_average_gradients(self, grads):
-        """
-        Sync and average the gradients between models on all processes using MPI.
-        """
-        sync_grads = self.comm.allreduce(np.array(grads))
-        avg_grads = sync_grads / self.comm.Get_size()
-        return avg_grads
-
-    def sync_params(self):
-        """
-        Sync parameters on all MPI processes. Call this initially to sync them all, then the gradient averaging
-        should take care of keeping them the same.
-        """
-        # TODO: do I need to sync every update if averaging all the same gradients and sync initially? Baselines does!
-        sync_params = self.comm.bcast(tf.global_variables(), root=self.controller)
-        if self.rank != self.controller:
-            assign_ops = [tf.assign(param, new_param) for param, new_param in zip(tf.global_variables(), sync_params)]
-            self.sess.run(assign_ops)
 
 
 def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):

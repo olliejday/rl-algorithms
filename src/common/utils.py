@@ -1,4 +1,7 @@
 import os
+import subprocess
+import sys
+
 import tensorflow as tf
 import random
 import numpy as np
@@ -318,3 +321,51 @@ class GradientBatchTrainer:
         sess.run(self.apply_grads_op,
                  feed_dict={placeholder[0]: grad for placeholder, grad in zip(self.grads_ph, gradients)})
 
+
+def sync_and_average_gradients(comm, grads):
+    """
+    Sync and average the gradients between models on all processes using MPI.
+    """
+    sync_grads = comm.allreduce(np.array(grads))
+    avg_grads = sync_grads / comm.Get_size()
+    return avg_grads
+
+
+def sync_params(comm, rank, controller, sess):
+    """
+    Sync all tf parameters across MPI processes. Call this initially to sync them all, then the gradient averaging
+    should take care of keeping them the same.
+    """
+    # TODO: do I need to sync every update if averaging all the same gradients and sync initially? Baselines does!
+    sync_params = comm.bcast(tf.global_variables(), root=controller)
+    if rank != controller:
+        assign_ops = [tf.assign(param, new_param) for param, new_param in zip(tf.global_variables(), sync_params)]
+        sess.run(assign_ops)
+
+
+def mpi_fork(n, bind_to_core=False):
+    """
+    Re-launches the current script with workers linked by MPI.
+    Also, terminates the original process that launched it.
+    Taken almost without modification from the Baselines function of the
+    `same name`_.
+    .. _`same name`: https://github.com/openai/baselines/blob/master/baselines/common/mpi_fork.py
+    Args:
+        n (int): Number of process to split into.
+        bind_to_core (bool): Bind each MPI process to a core.
+    """
+    if n <= 1:
+        return
+    if os.getenv("IN_MPI") is None:
+        env = os.environ.copy()
+        env.update(
+            MKL_NUM_THREADS="1",
+            OMP_NUM_THREADS="1",
+            IN_MPI="1"
+        )
+        args = ["mpirun", "-np", str(n)]
+        if bind_to_core:
+            args += ["-bind-to", "core"]
+        args += [sys.executable] + sys.argv
+        subprocess.check_call(args, env=env)
+        sys.exit()

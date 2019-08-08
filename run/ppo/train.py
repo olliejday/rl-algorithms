@@ -10,33 +10,34 @@ import tensorflow as tf
 
 from src.ppo.ppo import ProximalPolicyOptimisation
 from src.ppo.models import FC_NN
-from src.ppo.utils import PPOBuffer
-from src.common.utils import set_global_seeds, TrainingLogger
+from src.common.utils import set_global_seeds, TrainingLogger, mpi_fork
 
 
-def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwargs):
+def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=25, **kwargs):
     """
     MPI training function
 
     :param env_name: Environment name to train on
     :param exp_name: Experiment name to save logs to
     :param seed: Seed to run for this experiment
+    :param n_procs: Number of MPI processes to run with
     :param debug: Debug flag for training (whether to be more reproducible at expense of computation)
     :param n_iter: number of iterations to train for
     :param save_every: number of iterations to save models at
     :param kwargs: arguments to pass to VPG model __init__
     """
-    # TODO: see spin up for MPI setup and call from within Python
+    # relaunch the script with workers
+    mpi_fork(n_procs)
 
     # Setup for MPI
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # ensure each MPI process has different seed
-    seed *= rank
+    workerseed = seed + 10000 * MPI.COMM_WORLD.Get_rank()
     env = gym.make(env_name)
-    set_global_seeds(seed, debug)
-    env.seed(seed)
+    set_global_seeds(workerseed, debug)
+    env.seed(workerseed)
 
     n_processes = comm.Get_size()
     controller = 0
@@ -67,8 +68,6 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
 
     # setup the TF ops
     ppo.setup_graph()
-    # sync the initial params across processes
-    ppo.sync_params()
 
     timesteps = 0
 
@@ -117,35 +116,35 @@ def train(env_name, exp_name, seed, debug=True, n_iter=100, save_every=25, **kwa
     env.close()
 
 
-def train_cartpole(n_experiments=3, seed=1, debug=True, exp_name="ppo-cartpole"):
+def train_cartpole(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo-cartpole"):
     value_fn = FC_NN([64, 64], 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i
-        train("CartPole-v1", exp_name, seed=seed, debug=debug, value_fn=value_fn,
+        train("CartPole-v1", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,
               min_timesteps_per_batch=2500, n_iter=25, render_every=1000)
 
 
-def train_inverted_pendulum(n_experiments=3, seed=1, debug=True, exp_name="ppo-inverted-pendulum"):
+def train_inverted_pendulum(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo-inverted-pendulum"):
     value_fn = FC_NN([64, 64], 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i
-        train("RoboschoolInvertedPendulum-v1", exp_name, seed=seed, debug=debug,
+        train("RoboschoolInvertedPendulum-v1", exp_name, seed, n_procs, debug=debug,
               value_fn=value_fn, min_timesteps_per_batch=5000, n_iter=50, render_every=1000, save_every=45)
 
 
-def train_lander(n_experiments=3, seed=123, debug=False, exp_name="ppo-lander"):
+def train_lander(n_experiments=3, seed=123, n_procs=4, debug=False, exp_name="ppo-lander"):
     value_fn = FC_NN([64, 64], 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i
-        train("LunarLanderContinuous-v2", exp_name, seed=seed, debug=debug, value_fn=value_fn,
+        train("LunarLanderContinuous-v2", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,
               min_timesteps_per_batch=40000, render_every=1000, save_every=90)
 
 
-def train_half_cheetah(n_experiments=3, seed=1, debug=False, exp_name="ppo-half-cheetah"):
+def train_half_cheetah(n_experiments=3, seed=1, n_procs=4, debug=False, exp_name="ppo-half-cheetah"):
     value_fn = FC_NN([64, 64], 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i
-        train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed=seed, debug=debug, value_fn=value_fn,
+        train("RoboschoolHalfCheetah-v1", exp_name, n_experiments, seed, n_procs, debug=debug, value_fn=value_fn,
               min_timesteps_per_batch=50000, render_every=1000, save_every=90)
 
 
