@@ -5,8 +5,8 @@ import os
 import gym
 import logging
 
-from rl_algorithms.src.ppo import PPOBuffer
-from rl_algorithms.src.ppo import DiscretePolicy, ContinuousPolicy
+from rl_algorithms.src.ppo.utils import PPOBuffer
+from rl_algorithms.src.ppo.models import DiscretePolicy, ContinuousPolicy
 from rl_algorithms.src.common.utils import GradientBatchTrainer, sync_and_average_gradients, sync_params
 
 
@@ -225,7 +225,8 @@ class ProximalPolicyOptimisation:
         self.init_tf()
 
         # sync the initial params across processes
-        sync_params(self.comm, self.rank, self.controller, self.sess)
+        sync_params(self.policy.variables, self.comm, self.rank, self.controller, self.sess)
+        sync_params(self.value_fn.variables, self.comm, self.rank, self.controller, self.sess)
 
     def init_tf(self):
         self.sess = tf.Session(config=self.sess_config)
@@ -308,6 +309,7 @@ class ProximalPolicyOptimisation:
                 sess=self.sess, batch_size=self.gradient_batch_size)
             sync_grads = sync_and_average_gradients(self.comm, grads)
             self.value_fn_trainer.apply_gradients(sync_grads, sess=self.sess)
+
         # compute entropy before update
         policy_entropy = self.sess.run(self.policy_entropy,
                                        feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
@@ -321,13 +323,23 @@ class ProximalPolicyOptimisation:
                                                   batch_size=self.gradient_batch_size)
             sync_grads = sync_and_average_gradients(self.comm, grads)
             self.policy_trainer.apply_gradients(sync_grads, self.sess)
-            # get the kl of the update
-            approx_kl = self.sess.run(self.approx_kl,
-                                      feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
-                                                 self.acs_ph: acs[:self.gradient_batch_size],
-                                                 self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
+
+            # get the kl of the update, has to sync so all processes stop together
+            if self.rank == self.controller:
+                approx_kl = self.sess.run(self.approx_kl,
+                                          feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
+                                                     self.acs_ph: acs[:self.gradient_batch_size],
+                                                     self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
+            else:
+                approx_kl = None
+            approx_kl = self.comm.bcast(approx_kl, root=self.controller)
             if approx_kl > 1.5 * self.target_kl:
                 break
+
+        # sync the params across processes
+        sync_params(self.policy.variables, self.comm, self.rank, self.controller, self.sess)
+        sync_params(self.value_fn.variables, self.comm, self.rank, self.controller, self.sess)
+
         return policy_entropy, approx_kl
 
 

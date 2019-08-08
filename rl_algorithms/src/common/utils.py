@@ -327,19 +327,19 @@ def sync_and_average_gradients(comm, grads):
     Sync and average the gradients between models on all processes using MPI.
     """
     sync_grads = comm.allreduce(np.array(grads))
-    avg_grads = sync_grads / comm.Get_size()
+    avg_grads = sync_grads / float(comm.Get_size())
     return avg_grads
 
 
-def sync_params(comm, rank, controller, sess):
+def sync_params(tf_params, comm, rank, controller, sess):
     """
     Sync all tf parameters across MPI processes. Call this initially to sync them all, then the gradient averaging
     should take care of keeping them the same.
     """
-    # TODO: do I need to sync every update if averaging all the same gradients and sync initially? Baselines does!
-    sync_params = comm.bcast(tf.global_variables(), root=controller)
+    cur_params = np.array(sess.run(tf_params))
+    new_params = comm.bcast(cur_params, root=controller)
     if rank != controller:
-        assign_ops = [tf.assign(param, new_param) for param, new_param in zip(tf.global_variables(), sync_params)]
+        assign_ops = [tf.assign(param, new_param) for param, new_param in zip(tf_params, new_params)]
         sess.run(assign_ops)
 
 

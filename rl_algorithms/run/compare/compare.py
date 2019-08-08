@@ -52,7 +52,7 @@ def compare_half_cheetah():
 
 
 if __name__ == "__main__":
-    # compare_cartpole()
+    compare_cartpole()
     # compare_inverted_pendulum()
-    compare_lander()
-    compare_half_cheetah()
+    # compare_lander()
+    # compare_half_cheetah()

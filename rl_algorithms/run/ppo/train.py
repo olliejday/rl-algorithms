@@ -10,6 +10,7 @@ from rl_algorithms.src.ppo.ppo import ProximalPolicyOptimisation
 from rl_algorithms.src.ppo.models import FC_NN
 from rl_algorithms.src.common.utils import set_global_seeds, TrainingLogger, mpi_fork
 
+# TODO: some big refactor changes, might be worth running a few algorithms to check they're all still ok
 
 def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=25, **kwargs):
     """
@@ -114,12 +115,13 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
     env.close()
 
 
-def train_cartpole(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo-cartpole"):
+def train_cartpole(n_experiments=3, seed=1, n_procs=2, debug=True, exp_name="ppo-cartpole"):
     value_fn = FC_NN([64, 64], 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i
         train("CartPole-v1", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,
-              min_timesteps_per_batch=2500, n_iter=25, render_every=1000)
+              min_timesteps_per_batch=2500, n_iter=25, render_every=1000, gradient_batch_size=2500,
+              policy_learning_rate=3e-3, value_fn_learning_rate=1e-2)
 
 
 def train_inverted_pendulum(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo-inverted-pendulum"):
