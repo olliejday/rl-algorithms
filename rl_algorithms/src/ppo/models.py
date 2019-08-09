@@ -42,7 +42,7 @@ class DiscretePolicy(tf.keras.Model):
 class ContinuousPolicy(tf.keras.Model):
     def __init__(self, hidden_layer_sizes, output_size, activation="relu", **kwargs):
         super(ContinuousPolicy, self).__init__(**kwargs)
-        self.sy_logstd = tf.get_variable(name="log_std", shape=[output_size])
+        self.sy_logstd = tf.Variable(name="log_std", initial_value=tf.zeros(output_size))
         self.model = tf.keras.Sequential()
         for hidden_units in hidden_layer_sizes:
             self.model.add(Dense(hidden_units, activation=activation))
