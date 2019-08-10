@@ -135,18 +135,21 @@ def _train(env_name, exp_name, seed, algorithm_params, debug=True, save_every=45
         if epoch % save_every == 0:
             sac.save_model(timesteps)
 
+# TODO: 5. test lander (discrete) - cf. DQN
+# TODO: 8. test atari (discrete) - cf. DQN
 
 def train_cartpole():
+    # TODO: 4. test cartpole (discrete) - cf. PPO etc.
     algorithm_params = {
         'alpha': 0.2,
         'batch_size': 256,
         'discount': 0.99,
-        'learning_rate': 3e-3,
-        'tau': 5e-3,
-        'epoch_length': 1000,
+        'learning_rate': 5e-4,
+        'tau': 5e-2,
+        'epoch_length': 100,
         'two_qf': False
     }
-    train('CartPole-v1', "sac-cartpole", algorithm_params, n_epochs=500, save_every=490, seed=1, debug=True)
+    train('CartPole-v1', "sac-cartpole", algorithm_params, n_epochs=1000, save_every=490, seed=1, debug=True)
 
 
 def train_lander():
