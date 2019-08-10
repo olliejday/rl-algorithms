@@ -107,6 +107,7 @@ class ProximalPolicyOptimisation:
         self.experiments_path = experiments_path
 
         self.hidden_layer_sizes = hidden_layer_sizes
+        # TODO: LR scheduler?
         self.policy_learning_rate = policy_learning_rate
         self.value_fn_learning_rate = value_fn_learning_rate
         self.n_policy_updates = n_policy_updates
