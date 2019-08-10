@@ -32,6 +32,7 @@ class SAC:
                  tau=0.01):
         """
         Args:
+            # TODO: list args
         """
 
         # Is this env continuous, or self.discrete?
@@ -42,10 +43,12 @@ class SAC:
         else:
             self.ac_dim = env.action_space.shape[0]
 
+        # TODO: learn entropy coefficient???? maybe
         self._alpha = alpha
         self._batch_size = batch_size
         self._discount = discount
         self._epoch_length = epoch_length
+        # TODO: LR schedule?
         self._learning_rate = learning_rate
         self._reparameterize = reparameterize
         self._two_qf = two_qf
@@ -100,14 +103,17 @@ class SAC:
             self._learning_rate, name='optimizer')
         policy_training_op = optimizer.minimize(
             loss=policy_loss, var_list=self.policy.trainable_variables)
-        value_training_op = optimizer.minimize(
-            loss=value_function_loss,
-            var_list=self.value_function.trainable_variables)
-        q_function_training_op = optimizer.minimize(
-            loss=q_function_loss, var_list=self.q_function.trainable_variables)
-        if self.q_function2 is not None:
-            q_function2_training_op = optimizer.minimize(
-                loss=q_function2_loss, var_list=self.q_function2.trainable_variables)
+        # TODO: added this control dependency, needs testing
+        # make sure the policy is trained first
+        with tf.control_dependencies([policy_training_op]):
+            value_training_op = optimizer.minimize(
+                loss=value_function_loss,
+                var_list=self.value_function.trainable_variables)
+            q_function_training_op = optimizer.minimize(
+                loss=q_function_loss, var_list=self.q_function.trainable_variables)
+            if self.q_function2 is not None:
+                q_function2_training_op = optimizer.minimize(
+                    loss=q_function2_loss, var_list=self.q_function2.trainable_variables)
 
         self._training_ops = [
             policy_training_op, value_training_op, q_function_training_op

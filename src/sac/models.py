@@ -5,6 +5,9 @@ from tensorflow_probability import distributions
 from src.common.utils import gather_nd
 
 
+# TODO: from paper, reward scale is important
+# TODO: from paper (and see baselines), evaluation with deterministic policy taking the mean can perform better
+
 ### GENERAL
 
 
@@ -67,6 +70,7 @@ class GaussianPolicy(tf.keras.Model):
         log_probs = distribution.log_prob(raw_actions)
         log_probs -= self._squash_correction(raw_actions)
 
+        # TODO: need to rescale actions to match env.
         actions = tf.tanh(raw_actions)
 
         return [actions, log_probs]

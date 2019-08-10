@@ -77,6 +77,7 @@ class SimpleReplayPool(ReplayPool):
             # It's a bit memory inefficient to save the observations twice,
             # but it makes the code *much* easier since you no longer have
             # to worry about termination conditions.
+            # TODO: make this buffer more efficient ie. only store obs once (see DQN buffer) since using high dimension obs
             'next_observations': {
                 'shape': self._observation_shape,
                 'dtype': 'float32'
@@ -158,6 +159,7 @@ class SimpleSampler(Sampler):
         self._episode_return += reward
         self._total_samples += 1
 
+        # TODO: MPI on rollouts? - gets trickier on grads because of off policy use of buffer - see baselines / spinup
         self.pool.add_sample(
             observations=self._current_observation,
             actions=action,
