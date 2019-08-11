@@ -5,9 +5,9 @@ import os
 import argparse
 import numpy as np
 
-from rl_algorithms.src import ActorCrtic
+from rl_algorithms.src.ac.ac import ActorCrtic
 from rl_algorithms.src.common.utils import set_global_seeds, TrainingLogger
-from rl_algorithms.src import FC_NN
+from rl_algorithms.src.ac.models import FC_NN
 
 
 def train(env_name, exp_name, n_experiments=3, seed=123, debug=True, n_iter=100, save_every=25, **kwargs):

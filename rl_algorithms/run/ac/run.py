@@ -2,7 +2,7 @@ import gym
 import os
 import argparse
 
-from rl_algorithms.src import run_model
+from rl_algorithms.src.ac.ac import run_model
 from rl_algorithms.src.common.utils import set_global_seeds
 
 

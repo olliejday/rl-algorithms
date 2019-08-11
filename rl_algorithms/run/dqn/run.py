@@ -3,9 +3,9 @@ import os
 import argparse
 
 from rl_algorithms.src.dqn.dqn import run_model
-from rl_algorithms.src import get_env
-from rl_algorithms.src import wrap_deepmind
-from rl_algorithms.src import DQNCNNModelKerasSmall, DQNFCModelKeras
+from rl_algorithms.src.dqn.utils import get_env
+from rl_algorithms.src.dqn.atari_wrappers import wrap_deepmind
+from rl_algorithms.src.dqn.models import DQNCNNModelKerasSmall, DQNFCModelKeras
 
 
 def run(exp_name,

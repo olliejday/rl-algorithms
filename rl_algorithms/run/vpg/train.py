@@ -6,7 +6,7 @@ import numpy as np
 from multiprocessing import Process
 
 from rl_algorithms.src.vpg.vpg import VanillaPolicyGradients
-from rl_algorithms.src import FC_NN
+from rl_algorithms.src.vpg.models import FC_NN
 from rl_algorithms.src.common.utils import set_global_seeds, TrainingLogger
 
 

@@ -3,9 +3,9 @@ import numpy as np
 import time
 import os
 
-from rl_algorithms.src import normalise, VPGBuffer
+from rl_algorithms.src.vpg.utils import normalise, VPGBuffer
 from rl_algorithms.src.common.utils import GradientBatchTrainer
-from rl_algorithms.src import DiscretePolicy, ContinuousPolicy
+from rl_algorithms.src.vpg.models import DiscretePolicy, ContinuousPolicy
 
 
 class VanillaPolicyGradients:
@@ -146,7 +146,6 @@ class VanillaPolicyGradients:
 
         # the policy gradient loss
         loss = - tf.reduce_mean(self.logprob_ac * self.adv_ph, name="loss")
-        # TODO: regression test the new GradBatcher here
         self.policy_batch_trainer = GradientBatchTrainer(loss, self.learning_rate)
 
         if self.nn_baseline:

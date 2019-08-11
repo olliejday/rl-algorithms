@@ -6,10 +6,10 @@ import time
 import numpy as np
 from  multiprocessing import Process
 
-from rl_algorithms.src import DQNFCModelKeras, DQNCNNModelKerasSmall
+from rl_algorithms.src.dqn.models import DQNFCModelKeras, DQNCNNModelKerasSmall
 from rl_algorithms.src.dqn.dqn import DQN
-from rl_algorithms.src import get_env, PiecewiseSchedule, OptimizerSpec
-from rl_algorithms.src import wrap_deepmind
+from rl_algorithms.src.dqn.utils import get_env, PiecewiseSchedule, OptimizerSpec
+from rl_algorithms.src.dqn.atari_wrappers import wrap_deepmind
 
 from rl_algorithms.src.common.utils import TrainingLogger
 

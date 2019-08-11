@@ -318,6 +318,7 @@ class ProximalPolicyOptimisation:
         # Performing the Policy Update
         # TODO: syncing all param gradients say 10 times each update might in fact be slower than sending experience on MPI?
         #   though note with higher LR and in early iterations less update loop are done
+        #   get the older experience MPI version working again and test both for speed on mineRL
         for _ in range(self.n_policy_updates):
             grads = self.policy_trainer.compute_gradients(feed_dict={self.obs_ph: obs,
                                                              self.acs_ph: acs,

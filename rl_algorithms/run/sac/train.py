@@ -7,7 +7,7 @@ from multiprocessing import Process
 
 
 from rl_algorithms.src.common.utils import set_global_seeds, TrainingLogger
-from rl_algorithms.src import SAC
+from rl_algorithms.src.sac.sac import SAC
 import rl_algorithms.src.sac.utils as utils
 
 
