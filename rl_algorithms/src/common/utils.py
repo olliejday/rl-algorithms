@@ -152,7 +152,7 @@ def gather_nd(x, inds, name="gather_nd"):
     indices = tf.stack([tf.range(tf.shape(inds)[0]), inds], axis=1)
     return tf.gather_nd(x, indices, name=name)
 
-# TODO: ensure grad batcher works as normal for grad batch size = batch size (ie. when it's redundant)
+
 class GradientBatchTrainer:
     """
        Setup update op such that we can apply gradient in batches.

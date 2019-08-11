@@ -10,8 +10,6 @@ from rl_algorithms.src.ppo.ppo import ProximalPolicyOptimisation
 from rl_algorithms.src.ppo.models import FC_NN
 from rl_algorithms.src.common.utils import set_global_seeds, TrainingLogger, mpi_fork
 
-# TODO: some big refactor changes, might be worth running a few algorithms to check they're all still ok
-
 def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=25, **kwargs):
     """
     MPI training function
@@ -62,8 +60,6 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
     if rank == controller:
         log_cols = ["Iteration", "StdReturn", "MaxReturn", "MinReturn", "EpLenMean", "EpLenStd", "Entropy", "KL"]
         training_logger = TrainingLogger(experiments_path, log_cols, config=[str(ppo)])
-
-    # TODO: ensure works as expected for MPI num = 1
 
     # setup the TF ops
     ppo.setup_graph()
