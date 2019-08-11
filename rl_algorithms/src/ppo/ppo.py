@@ -310,10 +310,14 @@ class ProximalPolicyOptimisation:
             sync_grads = sync_and_average_gradients(self.comm, grads)
             self.value_fn_trainer.apply_gradients(sync_grads, sess=self.sess)
 
-        # compute entropy before update
-        policy_entropy = self.sess.run(self.policy_entropy,
-                                       feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
-                                                  self.acs_ph: acs[:self.gradient_batch_size],})
+        # compute entropy for logs
+        if self.rank == self.controller:
+            policy_entropy = self.sess.run(self.policy_entropy,
+                                           feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
+                                                      self.acs_ph: acs[:self.gradient_batch_size]})
+        else:
+            policy_entropy = None
+
         # Performing the Policy Update
         for _ in range(self.n_policy_updates):
             grads = self.policy_trainer.compute_gradients(feed_dict={self.obs_ph: obs,
@@ -333,10 +337,11 @@ class ProximalPolicyOptimisation:
             else:
                 approx_kl = None
             approx_kl = self.comm.bcast(approx_kl, root=self.controller)
+
             if approx_kl > 1.5 * self.target_kl:
                 break
 
-        # sync the params across processes
+        # sync the params across processes, not needed if init to the same then apply same gradients
         # sync_params(self.policy.variables, self.comm, self.rank, self.controller, self.sess)
         # sync_params(self.value_fn.variables, self.comm, self.rank, self.controller, self.sess)
 
