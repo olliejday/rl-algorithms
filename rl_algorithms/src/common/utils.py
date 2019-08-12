@@ -343,6 +343,25 @@ def sync_params(tf_params, comm, rank, controller, sess):
         sess.run(assign_ops)
 
 
+def sync_experience(rank, controller, comm, buffer):
+    """
+    Syncs experience across MPI processes to the controller.
+    :param buffer: must be some sort of training experience data buffer that has an extend(x) method that takes
+    another buffer, let's call it `x`, as argument and extends the buffer with x's data
+    :returns: data buffer with all experience gathered in controller,
+        None in non-controller processes
+    """
+    if rank == controller:
+        buffer_batch = comm.gather(buffer, controller)
+        out_buffer = buffer_batch[0]
+        for buff in buffer_batch[1:]:
+            out_buffer.extend(buff)
+    else:
+        comm.gather(buffer, controller)
+        out_buffer = None
+    return out_buffer
+
+
 def mpi_fork(n, bind_to_core=False):
     """
     Re-launches the current script with workers linked by MPI.

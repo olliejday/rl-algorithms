@@ -6,10 +6,13 @@ import numpy as np
 from mpi4py import MPI
 import tensorflow as tf
 
-from rl_algorithms.src.ppo.ppo import ProximalPolicyOptimisation
+from rl_algorithms.src.ppo.ppo_grad_mpi import ProximalPolicyOptimisation
+from rl_algorithms.src.ppo.ppo_exp_mpi import ProximalPolicyOptimisation
 from rl_algorithms.src.ppo.models import FC_NN
 from rl_algorithms.src.common.utils import set_global_seeds, TrainingLogger, mpi_fork
 
+# TODO: test refactor, and write up in README with the tradeoff for each. be sure to test both with MPI = 1.
+#  cartpole will do for grads, might be worth testing lander for exp (even if just one seed)
 def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=25, **kwargs):
     """
     MPI training function
@@ -85,11 +88,8 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
         ep_lens = [len(r) for r in raw_rwds]
 
         # send all logs to controller
-        returns = comm.gather(returns, root=controller)
-        ep_lens = comm.gather(ep_lens, root=controller)
+        returns, ep_lens = ppo.gather_logs(returns, ep_lens)
         if rank == controller:
-            returns = np.concatenate(returns)
-            ep_lens = np.concatenate(ep_lens)
             # logs are only sent to controller so we only log and save model in the controller
             timesteps += np.sum(ep_lens)
             training_logger.log(Time=time.strftime("%d/%m/%Y %H:%M:%S"),

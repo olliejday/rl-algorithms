@@ -7,7 +7,7 @@ import logging
 
 from rl_algorithms.src.ppo.utils import PPOBuffer
 from rl_algorithms.src.ppo.models import DiscretePolicy, ContinuousPolicy
-from rl_algorithms.src.common.utils import GradientBatchTrainer, sync_and_average_gradients, sync_params
+from rl_algorithms.src.common.utils import GradientBatchTrainer, sync_params, sync_experience
 
 
 class ProximalPolicyOptimisation:
@@ -38,6 +38,9 @@ class ProximalPolicyOptimisation:
 
         """
         Run Proximal Policy Optimisation (PPO) algorithm.
+
+        With MPI gathering on the experience and the parameters! ie. Processes perform rollouts and send experience
+        to a controller process which performs updates and then communicates parameters to the workers.
 
         Parameters
         ----------
@@ -258,7 +261,9 @@ class ProximalPolicyOptimisation:
     def sample_trajectories(self, itr):
         """
         Collect paths until we have enough timesteps.
-        Returns VPGBuffer() of experience.
+        Gathers the experience across MPI processes.
+        Returns VPGBuffer() of experience. In controller this has full experience. In other
+        processes this is empty.
         """
         buffer = PPOBuffer()
         while True:
@@ -268,7 +273,12 @@ class ProximalPolicyOptimisation:
             if buffer.length > self.min_timesteps_per_batch / self.comm.Get_size():
                 break
             buffer.next()
-        return buffer
+        # gather the experience in the controller.
+        sync_buffer = sync_experience(self.rank, self.controller, self.comm, buffer)
+        # empty buffer for non-controller processes
+        if sync_buffer is None:
+            sync_buffer = PPOBuffer()
+        return sync_buffer
 
     def sample_trajectory(self, buffer, render):
         """
@@ -302,46 +312,54 @@ class ProximalPolicyOptimisation:
         Update function to call to train policy and value function.
         Returns policy_entropy, approx_kl
         """
-        # Optimizing Neural Network Baseline
-        for _ in range(self.n_value_fn_updates):
-            grads = self.value_fn_trainer.compute_gradients(
-                feed_dict={self.obs_ph: obs, self.value_targets: rwds},
-                sess=self.sess, batch_size=self.gradient_batch_size)
-            sync_grads = sync_and_average_gradients(self.comm, grads)
-            self.value_fn_trainer.apply_gradients(sync_grads, sess=self.sess)
+        # To be updated only in controller
+        policy_entropy = None
+        approx_kl = None
+        # perform updates in controller
+        if self.rank == self.controller:
+            # Optimizing Neural Network Baseline
+            for _ in range(self.n_value_fn_updates):
+                self.value_fn_trainer.train(
+                    feed_dict={self.obs_ph: obs, self.value_targets: rwds},
+                    sess=self.sess, batch_size=self.gradient_batch_size)
 
-        # compute entropy before update
-        policy_entropy = self.sess.run(self.policy_entropy,
-                                       feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
-                                                  self.acs_ph: acs[:self.gradient_batch_size],})
-        # Performing the Policy Update
-        for _ in range(self.n_policy_updates):
-            grads = self.policy_trainer.compute_gradients(feed_dict={self.obs_ph: obs,
-                                                             self.acs_ph: acs,
-                                                             self.adv_ph: advs,
-                                                             self.prev_logprob_ph: logprobs}, sess=self.sess,
-                                                  batch_size=self.gradient_batch_size)
-            sync_grads = sync_and_average_gradients(self.comm, grads)
-            self.policy_trainer.apply_gradients(sync_grads, self.sess)
+            # compute entropy before update
+            policy_entropy = self.sess.run(self.policy_entropy,
+                                           feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
+                                                      self.acs_ph: acs[:self.gradient_batch_size],})
+            # Performing the Policy Update
+            for _ in range(self.n_policy_updates):
+                self.policy_trainer.train(feed_dict={self.obs_ph: obs,
+                                                                 self.acs_ph: acs,
+                                                                 self.adv_ph: advs,
+                                                                 self.prev_logprob_ph: logprobs}, sess=self.sess,
+                                                      batch_size=self.gradient_batch_size)
 
-            # get the kl of the update, has to sync so all processes stop together
-            if self.rank == self.controller:
                 approx_kl = self.sess.run(self.approx_kl,
                                           feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
                                                      self.acs_ph: acs[:self.gradient_batch_size],
                                                      self.prev_logprob_ph: logprobs[:self.gradient_batch_size]})
-            else:
-                approx_kl = None
-            approx_kl = self.comm.bcast(approx_kl, root=self.controller)
-            if approx_kl > 1.5 * self.target_kl:
-                break
+                if approx_kl > 1.5 * self.target_kl:
+                    break
 
         # sync the params across processes
-        # sync_params(self.policy.variables, self.comm, self.rank, self.controller, self.sess)
-        # sync_params(self.value_fn.variables, self.comm, self.rank, self.controller, self.sess)
+        sync_params(self.policy.variables, self.comm, self.rank, self.controller, self.sess)
+        sync_params(self.value_fn.variables, self.comm, self.rank, self.controller, self.sess)
 
         return policy_entropy, approx_kl
 
+    def gather_logs(self, returns, ep_lens):
+        """
+        Here the controller is the only one with the full experience already gathered so we only need to return the
+        logs in this controller.
+        We return None in all processes except controller where logs are actually recorded.
+        :return: (gathered) returns, ep_lens
+        """
+        returns = self.comm.gather(returns, root=self.controller)
+        ep_lens = self.comm.gather(ep_lens, root=self.controller)
+        returns = np.concatenate(returns)
+        ep_lens = np.concatenate(ep_lens)
+        return returns, ep_lens
 
 def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):
     """
