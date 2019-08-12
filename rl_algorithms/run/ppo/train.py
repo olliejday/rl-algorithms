@@ -116,7 +116,7 @@ def train_cartpole(n_experiments=3, seed=1, n_procs=2, debug=True, exp_name="ppo
     for i in range(1, n_experiments + 1):
         seed += 10 * i
         train("CartPole-v1", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,
-              min_timesteps_per_batch=2500, n_iter=3, render_every=1000, gradient_batch_size=2500,
+              min_timesteps_per_batch=2500, n_iter=25, render_every=1000, gradient_batch_size=2500,
               policy_learning_rate=3e-3, value_fn_learning_rate=1e-2)
 
 
@@ -129,14 +129,14 @@ def train_inverted_pendulum(n_experiments=3, seed=1, n_procs=1, debug=True, exp_
               policy_learning_rate=3e-3, value_fn_learning_rate=1e-2)
 
 
-def train_lander(n_experiments=3, seed=123, n_procs=2, debug=False, exp_name="ppo-lander"):
+def train_lander(n_experiments=3, seed=123, n_procs=4, debug=False, exp_name="ppo-lander"):
     value_fn = FC_NN([64, 64], 1)
     # TO
     for i in range(1, n_experiments + 1):
         seed += 10 * i
         train("LunarLanderContinuous-v2", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,
-              min_timesteps_per_batch=40000, render_every=1000, save_every=90, n_iter=2,
-              policy_learning_rate=5e-3, value_fn_learning_rate=1e-2)
+              min_timesteps_per_batch=40000, render_every=1000, save_every=90,
+              policy_learning_rate=1e-3, value_fn_learning_rate=5e-3)
 
 
 def train_half_cheetah(n_experiments=3, seed=1, n_procs=1, debug=False, exp_name="ppo-half-cheetah"):
