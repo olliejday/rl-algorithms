@@ -5,8 +5,8 @@ setup(
     py_modules=['rl_algorithms'],
     version='0.1',
     install_requires=[
-        'gym[atari,box2d,classic_control]>=0.10.8',
-        'matplotlib==3.0.2',
+        'gym[atari,box2d,classic_control]',
+        'matplotlib',
         'mpi4py',
         'pandas',
         'numpy',
