@@ -6,7 +6,7 @@ import gym
 import logging
 
 from rl_algorithms.src.ppo.utils import PPOBuffer
-from rl_algorithms.src.ppo.models import DiscretePolicy, ContinuousPolicy
+from rl_algorithms.src.ppo.models import DiscretePolicyFC, ContinuousPolicyFC
 from rl_algorithms.src.common.utils import GradientBatchTrainer, sync_params, sync_experience
 
 
@@ -182,9 +182,9 @@ class ProximalPolicyOptimisation:
             which are the parameters of the policy distribution p(a|s)
         """
         if self.discrete:
-            self.policy = DiscretePolicy(self.hidden_layer_sizes, output_size=self.ac_dim, activation="tanh")
+            self.policy = DiscretePolicyFC(self.hidden_layer_sizes, output_size=self.ac_dim, activation="tanh")
         else:
-            self.policy = ContinuousPolicy(self.hidden_layer_sizes, output_size=self.ac_dim, activation="tanh")
+            self.policy = ContinuousPolicyFC(self.hidden_layer_sizes, output_size=self.ac_dim, activation="tanh")
 
         self.sampled_ac = self.policy(self.obs_ph)
         self.logprob_ac = self.policy.logprob(self.obs_ph, self.acs_ph, name="logprob_ac")
