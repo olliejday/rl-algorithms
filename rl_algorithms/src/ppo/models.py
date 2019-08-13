@@ -68,9 +68,6 @@ class CNN(tf.keras.Model):
     def call(self, inputs):
         return self.model(inputs)
 
-# TODO: need to change policy to CNN (use above fn) might then be worth testing VIGAN + CNN PPO on cartpole and
-#   or lander since before was CNN discrim, but FC PPO
-
 class DiscretePolicyFC(tf.keras.Model):
     def __init__(self, hidden_layer_sizes, output_size, activation="relu", **kwargs):
         super(DiscretePolicyFC, self).__init__(**kwargs)
