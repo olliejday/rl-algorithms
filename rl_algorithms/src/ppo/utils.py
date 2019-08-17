@@ -135,3 +135,13 @@ class PPOBuffer:
             self.rwds.extend(buffer.rwds)
             self.logprobs.extend(buffer.logprobs)
             self.vals.extend(buffer.vals)
+
+    def get_data(self):
+        """
+        :return: observations, actions and logprobs concatenated into single sequences
+
+        """
+        obs = self.get_obs()
+        acs = self.get_acs()
+        logprobs = self.get_logprobs()
+        return obs, acs, logprobs

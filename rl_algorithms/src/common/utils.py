@@ -351,13 +351,12 @@ def sync_experience(rank, controller, comm, buffer):
     :returns: data buffer with all experience gathered in controller,
         None in non-controller processes
     """
+    buffer_batch = comm.gather(buffer, controller)
     if rank == controller:
-        buffer_batch = comm.gather(buffer, controller)
         out_buffer = buffer_batch[0]
         for buff in buffer_batch[1:]:
             out_buffer.extend(buff)
     else:
-        comm.gather(buffer, controller)
         out_buffer = None
     return out_buffer
 

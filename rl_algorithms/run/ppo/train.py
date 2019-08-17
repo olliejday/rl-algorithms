@@ -6,13 +6,13 @@ import numpy as np
 from mpi4py import MPI
 import tensorflow as tf
 
-from rl_algorithms.src.ppo.ppo_grad_mpi import ProximalPolicyOptimisation
+# from rl_algorithms.src.ppo.ppo_grad_mpi import ProximalPolicyOptimisation
 from rl_algorithms.src.ppo.ppo_exp_mpi import ProximalPolicyOptimisation
 from rl_algorithms.src.ppo.models import FC_NN
 from rl_algorithms.src.common.utils import set_global_seeds, TrainingLogger, mpi_fork
 
-# TODO: test refactor, and write up in README with the tradeoff for each. be sure to test both with MPI = 1.
-#  cartpole will do for grads, might be worth testing lander for exp (even if just one seed)
+# TODO: write up in README with the tradeoff for grad vs exp MPI.
+# TODO: also readme that can now work with CNN inputs, though no training log examples of this currently.
 def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=25, **kwargs):
     """
     MPI training function
@@ -111,17 +111,19 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
     env.close()
 
 
-def train_cartpole(n_experiments=3, seed=1, n_procs=2, debug=True, exp_name="ppo-cartpole"):
-    value_fn = FC_NN([64, 64], 1)
+def train_cartpole(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo-cartpole"):
+    dense_params = [{"units": 64, "activation": "tanh"}] * 2
+    value_fn = FC_NN(dense_params, 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i
         train("CartPole-v1", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,
-              min_timesteps_per_batch=2500, n_iter=25, render_every=1000, gradient_batch_size=2500,
+              min_timesteps_per_batch=2500, n_iter=25, render_every=1000, gradient_batch_size=5000,
               policy_learning_rate=3e-3, value_fn_learning_rate=1e-2)
 
 
-def train_inverted_pendulum(n_experiments=3, seed=1, n_procs=1, debug=True, exp_name="ppo-inverted-pendulum"):
-    value_fn = FC_NN([64, 64], 1)
+def train_inverted_pendulum(n_experiments=3, seed=1, n_procs=2, debug=True, exp_name="ppo-inverted-pendulum"):
+    dense_params = [{"units": 64, "activation": "tanh"}] * 2
+    value_fn = FC_NN(dense_params, 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i
         train("RoboschoolInvertedPendulum-v1", exp_name, seed, n_procs, debug=debug,
@@ -130,7 +132,8 @@ def train_inverted_pendulum(n_experiments=3, seed=1, n_procs=1, debug=True, exp_
 
 
 def train_lander(n_experiments=3, seed=123, n_procs=4, debug=False, exp_name="ppo-lander"):
-    value_fn = FC_NN([64, 64], 1)
+    dense_params = [{"units": 64, "activation": "tanh"}] * 2
+    value_fn = FC_NN(dense_params, 1)
     # TO
     for i in range(1, n_experiments + 1):
         seed += 10 * i
@@ -139,8 +142,9 @@ def train_lander(n_experiments=3, seed=123, n_procs=4, debug=False, exp_name="pp
               policy_learning_rate=1e-3, value_fn_learning_rate=5e-3)
 
 
-def train_half_cheetah(n_experiments=3, seed=1, n_procs=1, debug=False, exp_name="ppo-half-cheetah"):
-    value_fn = FC_NN([64, 64], 1)
+def train_half_cheetah(n_experiments=3, seed=1, n_procs=2, debug=False, exp_name="ppo-half-cheetah"):
+    dense_params = [{"units": 64, "activation": "tanh"}] * 2
+    value_fn = FC_NN(dense_params, 1)
     for i in range(1, n_experiments + 1):
         seed += 10 * i
         train("RoboschoolHalfCheetah-v1", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,

@@ -6,7 +6,7 @@ import gym
 import logging
 
 from rl_algorithms.src.ppo.utils import PPOBuffer
-from rl_algorithms.src.ppo.models import DiscretePolicyFC, ContinuousPolicyFC
+from rl_algorithms.src.ppo.models import DiscretePolicyFC, DiscretePolicyCNN, ContinuousPolicyFC, ContinuousPolicyCNN
 from rl_algorithms.src.common.utils import GradientBatchTrainer, sync_and_average_gradients, sync_params
 
 
@@ -17,7 +17,7 @@ class ProximalPolicyOptimisation:
                  controller,
                  rank,
                  sess_config=None,
-                 hidden_layer_sizes=[64, 64],
+                 policy_params={"dense_params": [{"units": 64, "activation": "tanh"}] * 2},
                  experiments_path="",
                  policy_learning_rate=3e-4,
                  value_fn_learning_rate=1e-3,
@@ -54,8 +54,10 @@ class ProximalPolicyOptimisation:
             rank of this process
         sess_config: tf.ConfigProto
             tf session conifuration, None for default
-        hidden_layer_sizes: list
-            List of ints for the number of units to have in the hidden layers
+        policy_params: dict
+            if "conv_params" is a key then will add CNN layers before dense.
+            uses "dense_params" for the dense NN params.
+            See utils/models.py.
         experiments_path: string
             path to save models to during training
         policy_learning_rate: float
@@ -109,7 +111,7 @@ class ProximalPolicyOptimisation:
 
         self.experiments_path = experiments_path
 
-        self.hidden_layer_sizes = hidden_layer_sizes
+        self.policy_params = policy_params
         self.policy_learning_rate = policy_learning_rate
         self.value_fn_learning_rate = value_fn_learning_rate
         self.n_policy_updates = n_policy_updates
@@ -140,7 +142,7 @@ class ProximalPolicyOptimisation:
         to_string = """
             policy_learning_rate: {}
             value_function_learning_rate: {}
-            hidden_layer_size: {}
+            policy_params: {}
             value_fn_class: {}
             gamma: {}
             n_policy_updates: {}
@@ -153,7 +155,7 @@ class ProximalPolicyOptimisation:
             """.format(
             self.policy_learning_rate,
             self.value_fn_learning_rate,
-            self.hidden_layer_sizes,
+            self.policy_params,
             self.value_fn,
             self.gamma,
             self.n_policy_updates,
@@ -181,10 +183,20 @@ class ProximalPolicyOptimisation:
         Constructs the symbolic operation for the policy network outputs,
             which are the parameters of the policy distribution p(a|s)
         """
-        if self.discrete:
-            self.policy = DiscretePolicyFC(self.hidden_layer_sizes, output_size=self.ac_dim, activation="tanh")
+        if "conv_params" in self.policy_params:
+            if self.discrete:
+                self.policy = DiscretePolicyCNN(self.policy_params["conv_params"],
+                                                self.policy_params["dense_params"],
+                                                self.ac_dim)
+            else:
+                self.policy = ContinuousPolicyCNN(self.policy_params["conv_params"],
+                                                  self.policy_params["dense_params"],
+                                                  self.ac_dim)
         else:
-            self.policy = ContinuousPolicyFC(self.hidden_layer_sizes, output_size=self.ac_dim, activation="tanh")
+            if self.discrete:
+                self.policy = DiscretePolicyFC(self.policy_params["dense_params"], self.ac_dim)
+            else:
+                self.policy = ContinuousPolicyFC(self.policy_params["dense_params"], self.ac_dim)
 
         self.sampled_ac = self.policy(self.obs_ph)
         self.logprob_ac = self.policy.logprob(self.obs_ph, self.acs_ph, name="logprob_ac")
@@ -358,8 +370,12 @@ class ProximalPolicyOptimisation:
         """
         returns = self.comm.gather(returns, root=self.controller)
         ep_lens = self.comm.gather(ep_lens, root=self.controller)
-        returns = np.concatenate(returns)
-        ep_lens = np.concatenate(ep_lens)
+        if self.rank == self.controller:
+            returns = np.concatenate(returns)
+            ep_lens = np.concatenate(ep_lens)
+        else:
+            returns = None
+            ep_lens = None
         return returns, ep_lens
 
 def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):
