@@ -43,6 +43,7 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
     controller = 0
     # Enable gpu usage for just the main process for training
     if rank == controller:
+        # TODO: make sure main proc has GPU
         device_config = tf.ConfigProto()
         root_dir = os.path.dirname(os.path.realpath(__file__))
         experiments_path = os.path.join(root_dir, "experiments", exp_name, str(seed))
@@ -110,7 +111,7 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
 
     env.close()
 
-
+# TODO: try to adjust and debug compared to ppo-cartpole1 and ppo-cartpole4
 def train_cartpole(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo-cartpole"):
     dense_params = [{"units": 64, "activation": "tanh"}] * 2
     value_fn = FC_NN(dense_params, 1)
