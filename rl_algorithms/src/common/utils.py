@@ -287,10 +287,10 @@ class GradientBatchTrainer:
         sorted_vals = sorted_dict[1]
         for x in zip(*sorted_vals):
             # feed dict of a single batch
-            feed_dict_bathc = {}
+            feed_dict_batch = {}
             for i, k in enumerate(sorted_keys):
-                feed_dict_bathc[k] = x[i]
-            yield feed_dict_bathc
+                feed_dict_batch[k] = x[i]
+            yield feed_dict_batcgh
 
     def train(self, feed_dict, batch_size, sess):
         """
