@@ -7,7 +7,7 @@ from mpi4py import MPI
 import tensorflow as tf
 
 # from rl_algorithms.src.ppo.ppo_grad_mpi import ProximalPolicyOptimisation
-from rl_algorithms.src.ppo.ppo_exp_mpi import ProximalPolicyOptimisation
+from rl_algorithms.src.ppo import ProximalPolicyOptimisation
 from rl_algorithms.src.ppo.models import FC_NN
 from rl_algorithms.src.common.utils import set_global_seeds, TrainingLogger, mpi_fork
 
@@ -115,7 +115,7 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
 def train_cartpole(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo-cartpole"):
     dense_params = [{"units": 64, "activation": "tanh"}] * 2
     value_fn = FC_NN(dense_params, 1)
-    for i in range(1, n_experiments + 1):
+    for i in range(n_experiments):
         seed += 10 * i
         train("CartPole-v1", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,
               min_timesteps_per_batch=2500, n_iter=25, render_every=1000, gradient_batch_size=5000,
@@ -125,7 +125,7 @@ def train_cartpole(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo
 def train_inverted_pendulum(n_experiments=3, seed=1, n_procs=2, debug=True, exp_name="ppo-inverted-pendulum"):
     dense_params = [{"units": 64, "activation": "tanh"}] * 2
     value_fn = FC_NN(dense_params, 1)
-    for i in range(1, n_experiments + 1):
+    for i in range(n_experiments):
         seed += 10 * i
         train("RoboschoolInvertedPendulum-v1", exp_name, seed, n_procs, debug=debug,
               value_fn=value_fn, min_timesteps_per_batch=5000, n_iter=50, render_every=1000, save_every=45,
@@ -136,7 +136,7 @@ def train_lander(n_experiments=3, seed=123, n_procs=4, debug=False, exp_name="pp
     dense_params = [{"units": 64, "activation": "tanh"}] * 2
     value_fn = FC_NN(dense_params, 1)
     # TO
-    for i in range(1, n_experiments + 1):
+    for i in range(n_experiments):
         seed += 10 * i
         train("LunarLanderContinuous-v2", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,
               min_timesteps_per_batch=40000, render_every=1000, save_every=90,
@@ -146,7 +146,7 @@ def train_lander(n_experiments=3, seed=123, n_procs=4, debug=False, exp_name="pp
 def train_half_cheetah(n_experiments=3, seed=1, n_procs=2, debug=False, exp_name="ppo-half-cheetah"):
     dense_params = [{"units": 64, "activation": "tanh"}] * 2
     value_fn = FC_NN(dense_params, 1)
-    for i in range(1, n_experiments + 1):
+    for i in range(n_experiments):
         seed += 10 * i
         train("RoboschoolHalfCheetah-v1", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,
               min_timesteps_per_batch=50000, render_every=1000, save_every=90,

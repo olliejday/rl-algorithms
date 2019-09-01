@@ -17,6 +17,7 @@ class ProximalPolicyOptimisation:
                  comm,
                  controller,
                  rank,
+                 value_fn,
                  sess_config=None,
                  policy_params={"dense_params": [{"units": 64, "activation": "tanh"}] * 2},
                  experiments_path="",
@@ -25,7 +26,6 @@ class ProximalPolicyOptimisation:
                  n_policy_updates=50,
                  n_value_updates=50,
                  clip_ratio=0.2,
-                 value_fn=None,
                  render_every=20,
                  max_path_length=1000,
                  min_timesteps_per_batch=10000,
@@ -72,7 +72,7 @@ class ProximalPolicyOptimisation:
         clip_ratio: float
             Hyperparameter for clipping policy objective
         value_fn: tf.keras.Model
-            Model to compute value function, see models.py.
+            Model to compute value function, see models.py. Or None.
         render_every: int
             Render an episode regularly through training to monitor progress
         max_path_length: int
@@ -93,7 +93,6 @@ class ProximalPolicyOptimisation:
             To split a batch into mini-batches which the gradient is averaged over to allow larger
             min_timesteps_per_batch than fits into GPU memory in one go.
         """
-        assert value_fn is not None, "Must provide value function."
 
         self.env = env
         # Is this env continuous, or self.discrete?
@@ -223,11 +222,14 @@ class ProximalPolicyOptimisation:
         loss = surrogate_loss - self.entropy_coefficient * self.policy_entropy
         self.policy_trainer = GradientBatchTrainer(loss, self.policy_learning_rate, self.policy.trainable_variables)
 
-        self.value_fn_prediction = self.value_fn(self.obs_ph)
-        value_loss = 0.5 * tf.reduce_sum((self.value_fn_prediction - self.value_targets) ** 2,
-                                         name="value_fn_loss")
-        self.value_fn_trainer = GradientBatchTrainer(value_loss, self.value_fn_learning_rate,
-                                                     self.value_fn.trainable_variables)
+        if self.value_fn is not None:
+            self.value_fn_prediction = self.value_fn(self.obs_ph)
+            value_loss = 0.5 * tf.reduce_sum((self.value_fn_prediction - self.value_targets) ** 2,
+                                             name="value_fn_loss")
+            self.value_fn_trainer = GradientBatchTrainer(value_loss, self.value_fn_learning_rate,
+                                                         self.value_fn.trainable_variables)
+        else:
+            self.value_fn_prediction = tf.no_op()
 
     def setup_graph(self):
         """
@@ -241,8 +243,9 @@ class ProximalPolicyOptimisation:
         self.init_tf()
 
         # sync the initial params across processes
-        sync_params(self.policy.variables, self.comm, self.rank, self.controller, self.sess)
-        sync_params(self.value_fn.variables, self.comm, self.rank, self.controller, self.sess)
+        if self.comm is not None:
+            sync_params(self.policy.variables, self.comm, self.rank, self.controller, self.sess)
+            sync_params(self.value_fn.variables, self.comm, self.rank, self.controller, self.sess)
 
     def init_tf(self):
         self.sess = tf.Session(config=self.sess_config)
@@ -339,10 +342,10 @@ class ProximalPolicyOptimisation:
             # Performing the Policy Update
             for _ in range(self.n_policy_updates):
                 self.policy_trainer.train(feed_dict={self.obs_ph: obs,
-                                                                 self.acs_ph: acs,
-                                                                 self.adv_ph: advs,
-                                                                 self.prev_logprob_ph: logprobs}, sess=self.sess,
-                                                      batch_size=self.gradient_batch_size)
+                                                     self.acs_ph: acs,
+                                                     self.adv_ph: advs,
+                                                     self.prev_logprob_ph: logprobs}, sess=self.sess,
+                                          batch_size=self.gradient_batch_size)
 
                 approx_kl = self.sess.run(self.approx_kl,
                                           feed_dict={self.obs_ph: obs[:self.gradient_batch_size],
@@ -368,15 +371,11 @@ class ProximalPolicyOptimisation:
         We return None in all processes except controller where logs are actually recorded.
         :return: (gathered) returns, ep_lens
         """
-        returns = self.comm.gather(returns, root=self.controller)
-        ep_lens = self.comm.gather(ep_lens, root=self.controller)
-        if self.rank == self.controller:
-            returns = np.concatenate(returns)
-            ep_lens = np.concatenate(ep_lens)
-        else:
+        if self.rank != self.controller:
             returns = None
             ep_lens = None
         return returns, ep_lens
+
 
 def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):
     """
@@ -389,6 +388,8 @@ def run_model(env, experiments_path, model_path=None, n_episodes=3, **kwargs):
     """
 
     ppo = ProximalPolicyOptimisation(env,
+                                     None, None, None,  # ignore MPI params
+                                     None,  # placeholder, don't need value fn for eval
                                      experiments_path=experiments_path,
                                      **kwargs)
     ppo.setup_graph()

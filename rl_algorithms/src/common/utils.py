@@ -263,7 +263,7 @@ class GradientBatchTrainer:
         batches = [data[i * batch_size:(i + 1) * batch_size] for i in range(n)]
         # add any extras if not exact batch size
         if len(data) / batch_size - int(len(data) / batch_size) > min_batch:
-            batches += [data[n:]]
+            batches += [data[n * batch_size:]]
         return batches
 
     def get_feed_dicts(self, feed_dict, batch_size):
