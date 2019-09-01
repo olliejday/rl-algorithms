@@ -271,22 +271,26 @@ class GradientBatchTrainer:
         Takes a feed_dict, TF style dictionary with keys of TF placeholders and values as data.
         Yields a batch at a time in the same dictionary format (same keys) but where values are now a single batch.
         """
+        # new dict holds all batched data
+        feed_dict_batches = {}
         # batch each placeholder's data
         for k, v in feed_dict.items():
-            feed_dict[k] = self.get_batches(v, batch_size)
+            feed_dict_batches[k] = self.get_batches(v, batch_size)
 
         # get a TF feed_dict style dictionary of a data batch for each placeholder
         def sort_name(elem):
             return elem.__str__()
 
-        sorted_dict = list(zip(*sorted(feed_dict.items(), key=sort_name)))
+        # format batched data dict into dicts of single batch
+        sorted_dict = list(zip(*sorted(feed_dict_batches.items(), key=sort_name)))
         sorted_keys = sorted_dict[0]
         sorted_vals = sorted_dict[1]
         for x in zip(*sorted_vals):
-            feed_dict = {}
+            # feed dict of a single batch
+            feed_dict_bathc = {}
             for i, k in enumerate(sorted_keys):
-                feed_dict[k] = x[i]
-            yield feed_dict
+                feed_dict_bathc[k] = x[i]
+            yield feed_dict_bathc
 
     def train(self, feed_dict, batch_size, sess):
         """
