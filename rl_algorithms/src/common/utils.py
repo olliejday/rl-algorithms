@@ -250,6 +250,8 @@ class GradientBatchTrainer:
                 tf.zeros_like(tv)
             ) for (accumulator, tv) in zip(accumulators, trainable_vars)
         ]
+        if average_gradient_batches:
+            self.zero_ops.append(accumulation_counter.assign(0.0))
 
     def get_batches(self, data, batch_size, min_batch=0.3):
         """
@@ -290,7 +292,7 @@ class GradientBatchTrainer:
             feed_dict_batch = {}
             for i, k in enumerate(sorted_keys):
                 feed_dict_batch[k] = x[i]
-            yield feed_dict_batcgh
+            yield feed_dict_batch
 
     def train(self, feed_dict, batch_size, sess):
         """
@@ -299,8 +301,8 @@ class GradientBatchTrainer:
         :param batch_size: batch size to batch data into (batch must fit into CPU/GPU memory)
         :param sess: TF session to run on.
         """
-        grads_and_vars = self.compute_gradients(feed_dict, batch_size, sess)
-        self.apply_gradients(grads_and_vars, sess)
+        grads = self.compute_gradients(feed_dict, batch_size, sess)
+        self.apply_gradients(grads, sess)
 
     def compute_gradients(self, feed_dict, batch_size, sess):
         """
