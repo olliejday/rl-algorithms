@@ -13,25 +13,26 @@ from matplotlib import cm
 matplotlib.style.use("seaborn")
 
 
-def set_global_seeds(seed, debug):
+def set_global_seeds(seed, debug, session_conf=None):
     """
     Set seeds for reproducibility.
     :param seed: Seed
     :param debug: if True then we use config for better reproducibility but slightly reduced performance,
     otherwise we use better performance (but GPU usage may mean imperfect reproducibility).
+    :param session_conf: session config to pass to Tf.
     """
     os.environ['PYTHONHASHSEED'] = '0'
     np.random.seed(seed)
     random.seed(seed)
     tf.set_random_seed(seed)
 
-    if debug:
+    if debug and session_conf is None:
         # single threads and no GPU for better reproducibility
         session_conf = tf.ConfigProto(intra_op_parallelism_threads=1,
                                       inter_op_parallelism_threads=1,
                                       device_count={'GPU': 0})
-        sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
-        tf.keras.backend.set_session(sess)
+    sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
+    tf.keras.backend.set_session(sess)
 
 
 def plot_training_curves(experiments, save_to="", title="Training Curves"):

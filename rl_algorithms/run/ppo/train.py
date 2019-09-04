@@ -12,7 +12,7 @@ from rl_algorithms.src.common.utils import set_global_seeds, TrainingLogger, mpi
 
 # TODO: write up in README with the tradeoff for grad vs exp MPI.
 # TODO: also readme that can now work with CNN inputs, though no training log examples of this currently.
-# TODO: import multi head from VIGAN?
+# TODO: import multi head ppo from VIGAN?
 def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=25, **kwargs):
     """
     MPI training function
@@ -33,17 +33,11 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
-    # ensure each MPI process has different seed
-    workerseed = seed + 10000 * MPI.COMM_WORLD.Get_rank()
-    env = gym.make(env_name)
-    set_global_seeds(workerseed, debug)
-    env.seed(workerseed)
-
-    n_processes = comm.Get_size()
     controller = 0
+
     # Enable gpu usage for just the main process for training
     if rank == controller:
-        # TODO: make sure main proc has GPU
+        # TODO:* make sure main proc has GPU, need to work with set_global_seeds, but this is used a lot so be careful
         device_config = tf.ConfigProto()
         root_dir = os.path.dirname(os.path.realpath(__file__))
         experiments_path = os.path.join(root_dir, "experiments", exp_name, str(seed))
@@ -53,11 +47,16 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
         device_config = tf.ConfigProto(device_count={'GPU': 0})
         experiments_path = None
 
+    # ensure each MPI process has different seed
+    workerseed = seed + 10000 * MPI.COMM_WORLD.Get_rank()
+    env = gym.make(env_name)
+    set_global_seeds(workerseed, debug, device_config)
+    env.seed(workerseed)
+
     ppo = ProximalPolicyOptimisation(env,
                                      comm,
                                      controller,
                                      rank,
-                                     sess_config=device_config,
                                      experiments_path=experiments_path,
                                      **kwargs)
 
@@ -111,13 +110,12 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
 
     env.close()
 
-
 def train_cartpole(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo-cartpole"):
     dense_params = [{"units": 64, "activation": "tanh"}] * 2
     value_fn = FC_NN(dense_params, 1)
     for i in range(n_experiments):
         seed += 10 * i
-        train("CartPole-v1", exp_name, seed, n_procs, debug=debug, value_fn=value_fn,
+        train("CartPole-v1", exp_name, seed, n_procs, debug=debug, value_fn=value_fn, save_every=25,
               min_timesteps_per_batch=2500, n_iter=25, render_every=1000, gradient_batch_size=5000,
               policy_learning_rate=3e-3, value_fn_learning_rate=1e-2)
 

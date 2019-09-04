@@ -17,7 +17,6 @@ class ProximalPolicyOptimisation:
                  controller,
                  rank,
                  value_fn,
-                 sess_config=None,
                  policy_params={"dense_params": [{"units": 64, "activation": "tanh"}] * 2},
                  experiments_path="",
                  policy_learning_rate=3e-4,
@@ -52,8 +51,6 @@ class ProximalPolicyOptimisation:
             rank of the controller process
         rank: int
             rank of this process
-        sess_config: tf.ConfigProto
-            tf session conifuration, None for default
         policy_params: dict
             if "conv_params" is a key then will add CNN layers before dense.
             uses "dense_params" for the dense NN params.
@@ -102,13 +99,12 @@ class ProximalPolicyOptimisation:
             self.ac_dim = env.action_space.shape[0]
 
         if value_fn is None:
-            print("Value function is None, evaluation only (not training).")
+            logging.warning("Value function is None, evaluation only (not training).")
 
         # MPI settings
         self.comm = comm
         self.controller = controller
         self.rank = rank
-        self.sess_config = sess_config
 
         self.experiments_path = experiments_path
 
@@ -133,7 +129,7 @@ class ProximalPolicyOptimisation:
         if self.experiments_path != None:
             save_dir = os.path.join(self.experiments_path, "models")
             if not os.path.exists(save_dir):
-                print("Made model directory: {}".format(save_dir))
+                logging.info("Made model directory: {}".format(save_dir))
                 os.makedirs(save_dir)
 
     def __str__(self):
@@ -250,7 +246,7 @@ class ProximalPolicyOptimisation:
             sync_params(self.value_fn.variables, self.comm, self.rank, self.controller, self.sess)
 
     def init_tf(self):
-        self.sess = tf.Session(config=self.sess_config)
+        self.sess = tf.keras.backend.get_session()
         self.sess.run(tf.global_variables_initializer())
 
     def save_model(self, timestep):
