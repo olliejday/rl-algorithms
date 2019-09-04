@@ -5,7 +5,7 @@ import argparse
 from rl_algorithms.src.ppo import run_model
 from rl_algorithms.src.common.utils import set_global_seeds
 
-
+# TODO: debug running models performing way worse than training both grad and exp
 def run(env,
         exp_name,
         seed=123,

@@ -1,10 +1,34 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Lambda
+from tensorflow.keras.layers import Dense, Conv2D, Flatten, Lambda, Input
+from tensorflow.keras import Model
 from rl_algorithms.src.common.utils import gaussian_log_likelihood, gather_nd
 from rl_algorithms.src.common.models import build_cnn, build_fc
 
 
-class FC_NN(tf.keras.Model):
+"""
+Core Models
+
+These subclass tf.keras.Model to provide core model types: CNN and FC.
+The core model class expects the model to be defined in self.layers_list, a sequential list of layers in the Functional
+API such as that returned by vigan.utils.models.build_*. 
+This is then used in the generic call function to sequentially propagate input through the models.
+
+"""
+
+
+class CoreModel(Model):
+    def __init__(self, **kwargs):
+        super(CoreModel, self).__init__(**kwargs)
+        self.layers_list = None
+
+    def call(self, inputs):
+        x = inputs
+        for layer in self.layers_list:
+            x = layer(x)
+        return x
+
+
+class FC_NN(CoreModel):
     def __init__(self, dense_params, output_size, output_activation=None, squeeze=True, **kwargs):
         """
         :param dense_params: list of dicts where each dict is the arguments to tf.keras.layers.Dense to setup that layer
@@ -15,13 +39,10 @@ class FC_NN(tf.keras.Model):
         :param kwargs: other arguments for Keras
         """
         super(FC_NN, self).__init__(**kwargs)
-        self.model = build_fc(dense_params, output_size, output_activation=output_activation, squeeze=squeeze)
-
-    def call(self, inputs):
-        return self.model(inputs)
+        self.layers_list = build_fc(dense_params, output_size, output_activation=output_activation, squeeze=squeeze)
 
 
-class CNN(tf.keras.Model):
+class CNN(CoreModel):
     def __init__(self, conv_params, dense_params, output_size, output_activation=None, squeeze=True, **kwargs):
         """
         :param cnn_params: list of dicts where each dict is the arguments to tf.keras.layers.Conv2D to setup that layer
@@ -36,17 +57,19 @@ class CNN(tf.keras.Model):
         :return: model tf.keras.Sequential()
         """
         super(CNN, self).__init__(**kwargs)
-        self.model = build_cnn(conv_params, dense_params, output_size, output_activation=output_activation,
-                               squeeze=squeeze)
-
-    def call(self, inputs):
-        return self.model(inputs)
+        self.layers_list = build_cnn(conv_params, dense_params, output_size, output_activation=output_activation,
+                                     squeeze=squeeze)
 
 
-class DiscretePolicyFC(tf.keras.Model):
+"""
+Policies
+"""
+
+
+class DiscretePolicyFC(Model):
     def __init__(self, dense_params, output_size, **kwargs):
         super(DiscretePolicyFC, self).__init__(**kwargs)
-        self.model = build_fc(dense_params, output_size)
+        self.model = FC_NN(dense_params, output_size, squeeze=False)
 
     def call(self, inputs):
         x = self.model(inputs)
@@ -62,11 +85,11 @@ class DiscretePolicyFC(tf.keras.Model):
         return logprob_acs
 
 
-class ContinuousPolicyFC(tf.keras.Model):
+class ContinuousPolicyFC(Model):
     def __init__(self, dense_params, output_size, **kwargs):
         super(ContinuousPolicyFC, self).__init__(**kwargs)
         self.sy_logstd = tf.Variable(name="log_std", initial_value=tf.zeros(output_size))
-        self.model = build_fc(dense_params, output_size)
+        self.model = FC_NN(dense_params, output_size, squeeze=False)
 
     def call(self, inputs):
         x = self.model(inputs)
@@ -80,10 +103,10 @@ class ContinuousPolicyFC(tf.keras.Model):
         return logprob_acs
 
 
-class DiscretePolicyCNN(tf.keras.Model):
+class DiscretePolicyCNN(Model):
     def __init__(self, conv_params, dense_params, output_size, **kwargs):
         super(DiscretePolicyCNN, self).__init__(**kwargs)
-        self.model = build_cnn(conv_params, dense_params, output_size)
+        self.model = CNN(conv_params, dense_params, output_size, squeeze=False)
 
     def call(self, inputs):
         x = self.model(inputs)
@@ -99,11 +122,11 @@ class DiscretePolicyCNN(tf.keras.Model):
         return logprob_acs
 
 
-class ContinuousPolicyCNN(tf.keras.Model):
+class ContinuousPolicyCNN(Model):
     def __init__(self, conv_params, dense_params, output_size, **kwargs):
         super(ContinuousPolicyCNN, self).__init__(**kwargs)
         self.sy_logstd = tf.Variable(name="log_std", initial_value=tf.zeros(output_size))
-        self.model = build_cnn(conv_params, dense_params, output_size)
+        self.model = CNN(conv_params, dense_params, output_size, squeeze=False)
 
     def call(self, inputs):
         x = self.model(inputs)

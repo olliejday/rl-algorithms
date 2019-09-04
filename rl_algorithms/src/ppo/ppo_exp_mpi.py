@@ -9,7 +9,6 @@ from rl_algorithms.src.ppo.utils import PPOBuffer
 from rl_algorithms.src.ppo.models import DiscretePolicyFC, DiscretePolicyCNN, ContinuousPolicyFC, ContinuousPolicyCNN
 from rl_algorithms.src.common.utils import GradientBatchTrainer, sync_params, sync_experience
 
-# TODO: not performing as well as grad MPI, seems to do worse with more procs as well - debug!
 
 class ProximalPolicyOptimisation:
     def __init__(self,
@@ -102,6 +101,9 @@ class ProximalPolicyOptimisation:
             self.ac_dim = env.action_space.n
         else:
             self.ac_dim = env.action_space.shape[0]
+
+        if value_fn is None:
+            print("Value function is None, evaluation only (not training).")
 
         # MPI settings
         self.comm = comm
@@ -218,18 +220,19 @@ class ProximalPolicyOptimisation:
         surrogate_loss = - tf.reduce_mean(tf.minimum(loss_values, clip_values), name="loss")
         # include an entropy term
         probs = tf.exp(self.logprob_ac)
-        self.policy_entropy = tf.reduce_sum(-(self.logprob_ac * probs))
+        self.policy_entropy = tf.reduce_mean(-(self.logprob_ac * probs))
         loss = surrogate_loss - self.entropy_coefficient * self.policy_entropy
         self.policy_trainer = GradientBatchTrainer(loss, self.policy_learning_rate, self.policy.trainable_variables)
 
-        if self.value_fn is not None:
+        if self.value_fn is None:
+            # for evaluation only
+            self.value_fn_prediction = tf.no_op()
+        else:
             self.value_fn_prediction = self.value_fn(self.obs_ph)
-            value_loss = 0.5 * tf.reduce_sum((self.value_fn_prediction - self.value_targets) ** 2,
+            value_loss = 0.5 * tf.reduce_mean((self.value_fn_prediction - self.value_targets) ** 2,
                                              name="value_fn_loss")
             self.value_fn_trainer = GradientBatchTrainer(value_loss, self.value_fn_learning_rate,
                                                          self.value_fn.trainable_variables)
-        else:
-            self.value_fn_prediction = tf.no_op()
 
     def setup_graph(self):
         """

@@ -6,13 +6,13 @@ import numpy as np
 from mpi4py import MPI
 import tensorflow as tf
 
-# from rl_algorithms.src.ppo.ppo_grad_mpi import ProximalPolicyOptimisation
 from rl_algorithms.src.ppo import ProximalPolicyOptimisation
 from rl_algorithms.src.ppo.models import FC_NN
 from rl_algorithms.src.common.utils import set_global_seeds, TrainingLogger, mpi_fork
 
 # TODO: write up in README with the tradeoff for grad vs exp MPI.
 # TODO: also readme that can now work with CNN inputs, though no training log examples of this currently.
+# TODO: import multi head from VIGAN?
 def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=25, **kwargs):
     """
     MPI training function
@@ -111,7 +111,7 @@ def train(env_name, exp_name, seed, n_procs, debug=True, n_iter=100, save_every=
 
     env.close()
 
-# TODO: try to adjust and debug compared to ppo-cartpole1 and ppo-cartpole4
+
 def train_cartpole(n_experiments=3, seed=1, n_procs=4, debug=True, exp_name="ppo-cartpole"):
     dense_params = [{"units": 64, "activation": "tanh"}] * 2
     value_fn = FC_NN(dense_params, 1)
