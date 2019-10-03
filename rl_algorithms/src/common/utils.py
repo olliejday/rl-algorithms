@@ -154,11 +154,66 @@ def gather_nd(x, inds, name="gather_nd"):
     return tf.gather_nd(x, indices, name=name)
 
 
+# Batching utils
+
+def get_batches(data, batch_size, min_batch=0.3):
+    """
+    Returns data split into an array of batches of size batch_size.
+    With additional data in a smaller batch if more than batch_size * min_batch amount in there
+    """
+    # if too big a batch size then use all the data
+    if batch_size > len(data):
+        batch_size = len(data)
+    n = int(len(data) / batch_size)
+    batches = [data[i * batch_size:(i + 1) * batch_size] for i in range(n)]
+    # add any extras if not exact batch size
+    if len(data) / batch_size - int(len(data) / batch_size) > min_batch:
+        batches += [data[n * batch_size:]]
+    return batches
+
+
+def get_feed_dicts(feed_dict, batch_size, min_batch=0.3):
+    """
+    Takes a feed_dict, TF style dictionary with keys of TF placeholders and values as data.
+    Yields a batch at a time in the same dictionary format (same keys) but where values are now a single batch.
+    """
+    # new dict holds all batched data
+    feed_dict_batches = {}
+    # batch each placeholder's data
+    for k, v in feed_dict.items():
+        feed_dict_batches[k] = get_batches(v, batch_size, min_batch=min_batch)
+
+    # get a TF feed_dict style dictionary of a data batch for each placeholder
+    def sort_name(elem):
+        return elem.__str__()
+
+    # format batched data dict into dicts of single batch
+    sorted_dict = list(zip(*sorted(feed_dict_batches.items(), key=sort_name)))
+    sorted_keys = sorted_dict[0]
+    sorted_vals = sorted_dict[1]
+    for x in zip(*sorted_vals):
+        # feed dict of a single batch
+        feed_dict_batch = {}
+        for i, k in enumerate(sorted_keys):
+            feed_dict_batch[k] = x[i]
+        yield feed_dict_batch
+
+
+
 class GradientBatchTrainer:
     """
        Setup update op such that we can apply gradient in batches.
        Because we want to use large batch sizes, but this can be too big for GPU memory, so we
        want to compute gradients in batches then sum them to update.
+       Why not just batch then call sess.run(update_op, ...) mutliple times with each batch like in supervised
+       learning?
+        Because on-policy algorithms like PPO when we update we need to use data from that policy, so we want all the
+       gradients to be computed with the same parameters as those that took the actions. If we do batch updating in
+       the supervised way then we break this by updating the parameters with a small batch and then we have new
+       new parameters so further updates are not on-policy. Averaging the gradients allows use of larger batch sizes
+       while preserving the on-policy updates. Empirically larger batch sizes have shown better performance with
+       eg. PPO.
+
        From: https://stackoverflow.com/questions/42156957/how-to-update-model-parameters-with-accumulated-gradients
 
        Really easy to use!
@@ -254,47 +309,6 @@ class GradientBatchTrainer:
         if average_gradient_batches:
             self.zero_ops.append(accumulation_counter.assign(0.0))
 
-    def get_batches(self, data, batch_size, min_batch=0.3):
-        """
-        Returns data split into an array of batches of size batch_size.
-        With additional data in a smaller batch if more than batch_size * min_batch amount in there
-        """
-        # if too big a batch size then use all the data
-        if batch_size > len(data):
-            batch_size = len(data)
-        n = int(len(data) / batch_size)
-        batches = [data[i * batch_size:(i + 1) * batch_size] for i in range(n)]
-        # add any extras if not exact batch size
-        if len(data) / batch_size - int(len(data) / batch_size) > min_batch:
-            batches += [data[n * batch_size:]]
-        return batches
-
-    def get_feed_dicts(self, feed_dict, batch_size):
-        """
-        Takes a feed_dict, TF style dictionary with keys of TF placeholders and values as data.
-        Yields a batch at a time in the same dictionary format (same keys) but where values are now a single batch.
-        """
-        # new dict holds all batched data
-        feed_dict_batches = {}
-        # batch each placeholder's data
-        for k, v in feed_dict.items():
-            feed_dict_batches[k] = self.get_batches(v, batch_size)
-
-        # get a TF feed_dict style dictionary of a data batch for each placeholder
-        def sort_name(elem):
-            return elem.__str__()
-
-        # format batched data dict into dicts of single batch
-        sorted_dict = list(zip(*sorted(feed_dict_batches.items(), key=sort_name)))
-        sorted_keys = sorted_dict[0]
-        sorted_vals = sorted_dict[1]
-        for x in zip(*sorted_vals):
-            # feed dict of a single batch
-            feed_dict_batch = {}
-            for i, k in enumerate(sorted_keys):
-                feed_dict_batch[k] = x[i]
-            yield feed_dict_batch
-
     def train(self, feed_dict, batch_size, sess):
         """
         The training call on the gradient batch trainer.
@@ -314,7 +328,7 @@ class GradientBatchTrainer:
         :return: gradients as list of numpy arrays
         """
         sess.run(self.zero_ops)
-        for fd in self.get_feed_dicts(feed_dict, batch_size):
+        for fd in get_feed_dicts(feed_dict, batch_size):
             sess.run(self.accumulate_ops, feed_dict=fd)
         gradients = sess.run([g for (g, v) in self.accumulation_gradients])  # variable storing the accum grads
         return gradients
