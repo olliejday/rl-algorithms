@@ -26,6 +26,10 @@ cd rl-algorithms
 pip3 install -r requirements.txt
 ```
 
+## TODO
+
+Move to TensorFlow 2.0.
+
 ## Sources:
 
 This repo is built on research work:
