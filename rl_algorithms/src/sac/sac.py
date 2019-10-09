@@ -3,7 +3,7 @@ import os
 import tensorflow as tf
 import time
 
-from rl_algorithms.src import GaussianPolicy, ValueFunction, QFunction
+from rl_algorithms.src.sac.models import GaussianPolicy, ValueFunction, QFunction
 
 
 class SAC:
