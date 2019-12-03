@@ -30,6 +30,8 @@ pip3 install -r requirements.txt
 
 Move to TensorFlow 2.0.
 
+Integrate PPO updatess from MineRL.
+
 ## Sources:
 
 This repo is built on research work:
